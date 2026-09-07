@@ -219,6 +219,7 @@ export const pagesEn: Record<keyof typeof pagesZh, string> = {
   "pages.taskDetail.copyTaskId": "Copy task ID",
   "pages.taskDetail.copied": "Task ID copied",
   "pages.taskDetail.openMain": "View in the main UI",
+  "pages.taskDetail.openBoardTasks": "Open in the task board",
 
   /* ── Board browser (/nav) ───────────────────────── */
   "pages.nav.ungrouped": "Ungrouped",

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
+import path from "node:path";
 import { E2E_AIDOCS_URL, E2E_BOOK_LIBRARY_URL } from "./integrations";
 
 /**
@@ -181,6 +182,52 @@ test.describe("泼墨画板", () => {
     await expect(row).toBeVisible({ timeout: 15_000 });
     await expect(row).toContainText("执行中");
     await tasksPage.close();
+  });
+
+  test("本机 ACP run：抽屉标出「本机」，跳任务台而不是 Runner 主界面", async ({ page }) => {
+    // 这一条锁的是一个真实踩到的 bug：本机 ACP run 的 id 对端 Runner 根本不认识，
+    // 抽屉却照样给「在主界面查看」——点过去是死链。判定收进 lib/constants.ts isLocalRunId。
+    await boot(page);
+    await newBoard(page, `E2E-本机ACP-${Date.now() % 100000}`);
+    const boardId = await currentBoardId(page);
+    const auth = { "content-type": "application/json", "x-auth-key": "e2e-token" };
+    const mockAgent = path.resolve("scripts/mock-acp-agent.mjs");
+
+    // goal-agent 后端下注册表照常可写（本机派单与任务后端正交）
+    const registered = await page.request.patch("/api/runner-settings", {
+      headers: auth,
+      data: {
+        agents: [{ id: "e2e-acp", name: "E2E 本机 agent", command: process.execPath, args: [mockAgent, "--mode", "auto-finish"] }],
+        defaultAgentId: "e2e-acp",
+      },
+    });
+    expect(registered.ok()).toBeTruthy();
+
+    const created = await page.request.post(`/api/boards/${boardId}/cards`, {
+      headers: auth,
+      data: { type: "task", title: "本机跑的那一条", task: { goal: "验证抽屉里的跳转" }, x: 80, y: 80 },
+    });
+    const cardId = (await created.json()).card.id;
+    const issued = await page.request.post(`/api/boards/${boardId}/cards/${cardId}/issue`, { headers: auth });
+    expect(issued.status()).toBe(201);
+
+    const launched = await page.request.post(`/api/boards/${boardId}/cards/${cardId}/launch`, {
+      headers: auth,
+      data: { mode: "implement", agentId: "e2e-acp" },
+    });
+    expect(launched.status()).toBe(201);
+    // 带 agentId 就跑在本机：id 是 r_ 开头，不是 mock Runner 那种 task-issue-N
+    expect((await launched.json()).task.sessionId).toMatch(/^r_/);
+
+    await page.locator(".top-btn[aria-label='刷新']").click();
+    await page.locator(CARD, { hasText: "本机跑的那一条" }).locator('[data-act="detail"]').click();
+    const drawer = page.locator(".drawer.task-drawer.open");
+    await expect(drawer.locator(".tk-chip.acp")).toContainText("E2E 本机 agent", { timeout: 15_000 });
+    // 关键断言：给的是画板任务台的入口，而不是那条对端不认识的死链
+    await expect(drawer.getByRole("button", { name: "在任务台查看" })).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "在主界面查看" })).toHaveCount(0);
+    // 产出登记归外部 Runner，本机 run 说清楚而不是让人以为 agent 没干活
+    await expect(drawer).toContainText("产出登记归外部 Runner");
   });
 
   test("配置 JSON 全量替换 + agent 写入后页面自动刷新", async ({ page }) => {

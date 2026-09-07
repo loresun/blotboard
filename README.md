@@ -4,7 +4,7 @@
 
 **Blotboard — a local-first whiteboard that humans and any agent share.**
 
-> ℹ️ **v1.0.1**：自私有项目重构而来（1.0.0 是首个公开版本），代码与验收（239 条 e2e）都已成型，
+> ℹ️ **v1.0.2**：自私有项目重构而来（1.0.0 是首个公开版本），代码与验收（240 条 e2e）都已成型，
 > 但公开使用者还少。按[语义化版本](https://semver.org/lang/zh-CN/)承诺：破坏性改动进大版本。
 > 上生产前请自己先跑一遍 `npm run check`，并按 [SECURITY.md](SECURITY.md) 确认网络边界。
 

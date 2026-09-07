@@ -4,8 +4,8 @@ English | [中文](README.md)
 
 **Blotboard — a local-first whiteboard that humans and any agent share.**
 
-> ℹ️ **v1.0.1.** Refactored out of a private project (1.0.0 was the first public release); the code and its
-> acceptance suite (239 e2e specs) are in place, but it has few public users yet. It follows
+> ℹ️ **v1.0.2.** Refactored out of a private project (1.0.0 was the first public release); the code and its
+> acceptance suite (240 e2e specs) are in place, but it has few public users yet. It follows
 > [semantic versioning](https://semver.org): breaking changes go into a major version.
 > Before you run it in production, run `npm run check` yourself and read [SECURITY.md](SECURITY.md) on network boundaries.
 

@@ -12,11 +12,11 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api-client";
-import { ISSUE_STATUS_LABEL, RUNNER_STATUS_LABEL, formatTime } from "@/lib/constants";
+import { ISSUE_STATUS_LABEL, RUNNER_STATUS_LABEL, formatTime, isLocalRunId } from "@/lib/constants";
 import { ICON_MD, ICON_SM, UI, typeIcon } from "@/lib/icons";
 import { useCardLabel, useT, tr } from "@/lib/i18n/client";
 import type { DictKey } from "@/lib/i18n";
-import { useFeatures } from "@/lib/features-client";
+import { taskBackendKind, useFeatures } from "@/lib/features-client";
 import { goalAgentOrigin } from "@/lib/origins";
 import { relatedOf, useBoardStore } from "@/lib/store";
 import type { BoardCard } from "@/lib/types";
@@ -27,6 +27,8 @@ interface LiveTask {
   updatedAt: number | null;
   /** local 后端专属：发起任务时生成的完整 prompt（「复制 prompt」用） */
   prompt?: string;
+  /** 本机 ACP run 专属：谁跑的（外部 Runner 的 task 没有这个） */
+  agentName?: string | null;
 }
 
 interface Artifact {
@@ -89,13 +91,17 @@ export function TaskDrawer() {
             summary: task.summary || "",
             updatedAt: task.updatedAt || null,
             prompt: typeof task.prompt === "string" ? task.prompt : undefined,
+            agentName: task.kind === "acp" ? task.agentName || null : null,
           });
         })
         .catch((err: Error) => !cancelled && setError(err.message));
-      api
-        .taskArtifacts(taskId)
-        .then((payload) => !cancelled && setArtifacts(payload.artifacts || payload.items || []))
-        .catch(() => !cancelled && setArtifacts([]));
+      // 产出登记归外部 Runner；本机 ACP run 的 id 对端根本不认识，不去白问一趟
+      if (isLocalRunId(taskId)) setArtifacts([]);
+      else
+        api
+          .taskArtifacts(taskId)
+          .then((payload) => !cancelled && setArtifacts(payload.artifacts || payload.items || []))
+          .catch(() => !cancelled && setArtifacts([]));
     }
     return () => {
       cancelled = true;
@@ -303,6 +309,9 @@ export function TaskDrawer() {
                       {RUNNER_STATUS_LABEL[live.status] ? t(RUNNER_STATUS_LABEL[live.status]) : live.status}
                     </span>
                     {live.updatedAt ? <span className="meta-chip">{formatTime(live.updatedAt)}</span> : null}
+                    {isLocalRunId(taskId) ? (
+                      <span className="tk-chip acp">{t("pages.tasks.localAcp.by", { agent: live.agentName || "ACP" })}</span>
+                    ) : null}
                     <span className="meta-chip mono">{taskId}</span>
                   </div>
                   <div className="td-summary">{live.summary || t("panels.task.noSummary")}</div>
@@ -318,7 +327,17 @@ export function TaskDrawer() {
                         <UI.copy {...ICON_SM} /> {t("panels.task.copyPrompt")}
                       </button>
                     ) : null}
-                    {goalAgentOrigin() ? (
+                    {/*
+                      这一轮跑在哪，决定这颗按钮跳哪：
+                       - **本机 ACP run**（id `r_` 开头）：对端 Runner 没有这条 task，跳过去是死链。
+                         跳画板自己的任务台——流式 transcript、权限确认、中止都只在那里；
+                       - 外部 Runner 的 task：跳它的主界面（没配 GOAL_AGENT_WEB_URL 就没得跳）。
+                    */}
+                    {isLocalRunId(taskId) ? (
+                      <button className="mini-btn" onClick={() => window.open(boardTasksUrl(card), "_blank", "noopener")}>
+                        <UI.external {...ICON_SM} /> {t("panels.task.viewInBoardTasks")}
+                      </button>
+                    ) : goalAgentOrigin() ? (
                       <button
                         className="mini-btn"
                         onClick={() => window.open(`${goalAgentOrigin()}/?task=${encodeURIComponent(taskId)}`, "_blank", "noopener")}
@@ -346,7 +365,9 @@ export function TaskDrawer() {
                 {artifacts === null ? (
                   <div className="config-hint">{t("panels.task.artifactsLoading")}</div>
                 ) : !artifacts.length ? (
-                  <div className="config-hint">{t("panels.task.artifacts.empty")}</div>
+                  <div className="config-hint">
+                    {t(isLocalRunId(taskId) ? "panels.task.artifacts.localRun" : "panels.task.artifacts.empty")}
+                  </div>
                 ) : (
                   artifacts.map((artifact) => (
                     <div className="artifact-row" key={artifact.id}>
@@ -399,4 +420,17 @@ export function TaskDrawer() {
       </div>
     </div>
   );
+}
+
+/**
+ * 本机 run 在画板任务台里的深链。两种后端的 `?issue=` 语义不同，得分开给：
+ *  - local：认本地 Issue id；
+ *  - goal-agent / http（聚合镜像）：认 `boardId:cardId`（也认单独的 cardId）。
+ */
+function boardTasksUrl(card: BoardCard): string {
+  const want =
+    taskBackendKind() === "local"
+      ? card.task?.issueId || card.id
+      : `${useBoardStore.getState().boardId || ""}:${card.id}`;
+  return `/tasks?issue=${encodeURIComponent(want)}`;
 }

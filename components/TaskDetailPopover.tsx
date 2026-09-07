@@ -3,8 +3,9 @@
 /** 画板内任务详情浮层：不离开画板就能看执行进展（数据现查 Runner，不落库）。 */
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api-client";
-import { RUNNER_STATUS_LABEL, formatTime } from "@/lib/constants";
+import { RUNNER_STATUS_LABEL, formatTime, isLocalRunId } from "@/lib/constants";
 import { ICON_SM, UI, typeIcon } from "@/lib/icons";
+import { taskBackendKind } from "@/lib/features-client";
 import { useCardLabel, useT } from "@/lib/i18n/client";
 import { goalAgentOrigin } from "@/lib/origins";
 import { relatedOf, useBoardStore } from "@/lib/store";
@@ -18,7 +19,7 @@ export interface TaskDetailTarget {
 export function TaskDetailPopover({ target, onClose }: { target: TaskDetailTarget | null; onClose: () => void }) {
   const t = useT();
   const cardLabel = useCardLabel();
-  const [live, setLive] = useState<{ status: string; summary: string; updatedAt: number | null } | null>(null);
+  const [live, setLive] = useState<{ status: string; summary: string; updatedAt: number | null; agentName: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [reloadSeq, setReloadSeq] = useState(0);
@@ -39,7 +40,13 @@ export function TaskDetailPopover({ target, onClose }: { target: TaskDetailTarge
       .then((payload) => {
         if (cancelled) return;
         const task = payload.task || payload;
-        setLive({ status: task.status || "unknown", summary: task.summary || "", updatedAt: task.updatedAt || null });
+        setLive({
+          status: task.status || "unknown",
+          summary: task.summary || "",
+          updatedAt: task.updatedAt || null,
+          // 本机 ACP run 才有：抽屉据此标出「谁跑的」，也据此换掉那个跳对端的按钮
+          agentName: task.kind === "acp" ? task.agentName || null : null,
+        });
       })
       .catch((err: Error) => !cancelled && setError(err.message))
       .finally(() => !cancelled && setLoading(false));
@@ -110,6 +117,11 @@ export function TaskDetailPopover({ target, onClose }: { target: TaskDetailTarge
             <div className="td-label">
               {t("pages.taskDetail.latest", { status: RUNNER_STATUS_LABEL[live.status] ? t(RUNNER_STATUS_LABEL[live.status]) : live.status })}
               {live.updatedAt ? ` · ${formatTime(live.updatedAt)}` : ""}
+              {isLocalRunId(taskId) ? (
+                <span className="tk-chip acp" style={{ marginLeft: 6 }}>
+                  {t("pages.tasks.localAcp.by", { agent: live.agentName || "ACP" })}
+                </span>
+              ) : null}
             </div>
             <div className="td-summary">{live.summary || t("pages.taskDetail.noSummary")}</div>
             <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
@@ -125,8 +137,17 @@ export function TaskDetailPopover({ target, onClose }: { target: TaskDetailTarge
               <button className="mini-btn" onClick={() => setReloadSeq((value) => value + 1)}>
                 <UI.refresh {...ICON_SM} /> {t("top.zoom.refresh")}
               </button>
-              {/* 没配 GOAL_AGENT_WEB_URL 就没有可跳的主界面 */}
-              {goalAgentWebUrl() ? (
+              {/*
+                这一轮跑在哪，决定这颗按钮跳哪：
+                 - **本机 ACP run**（id `r_` 开头）：对端 Runner 根本没这条 task，跳过去是死链。
+                   跳画板自己的任务台——流式 transcript、权限确认、中止都只在那里；
+                 - 外部 Runner 的 task：跳它的主界面（没配 GOAL_AGENT_WEB_URL 就没得跳）。
+              */}
+              {isLocalRunId(taskId) ? (
+                <button className="mini-btn" onClick={() => window.open(boardTasksUrl(card), "_blank", "noopener")}>
+                  <UI.external {...ICON_SM} /> {t("pages.taskDetail.openBoardTasks")}
+                </button>
+              ) : goalAgentWebUrl() ? (
                 <button
                   className="mini-btn"
                   onClick={() => {
@@ -147,4 +168,17 @@ export function TaskDetailPopover({ target, onClose }: { target: TaskDetailTarge
 /** Goal Agent 主界面地址由服务端注入 <body data-goal-agent-web>，避免把配置写死在前端。 */
 function goalAgentWebUrl(): string {
   return goalAgentOrigin();
+}
+
+/**
+ * 本机 run 在画板任务台里的深链。两种后端的 `?issue=` 语义不同，得分开给：
+ *  - local：认本地 Issue id；
+ *  - goal-agent / http（聚合镜像）：认 `boardId:cardId`（也认单独的 cardId）。
+ */
+function boardTasksUrl(card: BoardCard): string {
+  const want =
+    taskBackendKind() === "local"
+      ? card.task?.issueId || card.id
+      : `${useBoardStore.getState().boardId || ""}:${card.id}`;
+  return `/tasks?issue=${encodeURIComponent(want)}`;
 }

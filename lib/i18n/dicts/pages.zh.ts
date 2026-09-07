@@ -220,6 +220,7 @@ export const pagesZh = {
   "pages.taskDetail.copyTaskId": "复制任务 ID",
   "pages.taskDetail.copied": "任务 ID 已复制",
   "pages.taskDetail.openMain": "在主界面查看",
+  "pages.taskDetail.openBoardTasks": "在任务台查看",
 
   /* ── 画板导航页（/nav） ─────────────────────────── */
   "pages.nav.ungrouped": "未分组",

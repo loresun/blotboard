@@ -30,6 +30,7 @@ import {
   STATUS_META,
   TASK_COLUMNS,
   formatTime,
+  isLocalRunId,
 } from "@/lib/constants";
 import { type TaskBackendKind } from "@/lib/features-client";
 import { ICON_MD, ICON_SM, STATUS_ICON, UI } from "@/lib/icons";
@@ -72,11 +73,6 @@ interface LiveTaskInfo {
 
 /** 远程形态多出来的横切镜头：按「谁在执行」筛，而不是按任务状态 */
 const LOCAL_RUN_LENS = "local_acp";
-
-/** 本机 ACP run 的 id 一律 `r_` 开头：列表行只有 taskId 可看，靠前缀认出「跑在本机」 */
-function isLocalRunId(taskId: string | null | undefined): boolean {
-  return Boolean(taskId && taskId.startsWith("r_"));
-}
 
 /** Issue 状态的小圆点颜色（镜头行与状态 chip 共用） */
 const LENS_DOT: Record<string, string> = {

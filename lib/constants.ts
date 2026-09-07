@@ -87,6 +87,17 @@ export const PRIORITIES: Record<TaskPriority, DictKey> = {
 export const TASK_COLUMNS: TaskStatus[] = ["idea", "issued", "running", "done"];
 
 /**
+ * 这个任务 id 是不是**本机 ACP run**（画板自己 spawn 的那一轮，见 lib/integrations/acp-lane.ts）。
+ *
+ * 本机 run 的 id 一律 `r_` 开头，外部 Runner 的 task id 是它自己的形态。任何「要不要跳去
+ * Runner 主界面」「要不要显示本机标记」的判断都用这一条——写在这里而不是各页面自己判，
+ * 是因为它漏在哪一处，那一处就会把本机 run 当成对端的任务，给出一个对端根本不认识的链接。
+ */
+export function isLocalRunId(taskId: string | null | undefined): boolean {
+  return Boolean(taskId && taskId.startsWith("r_"));
+}
+
+/**
  * 连线语义：颜色 + 文案 + 线型（虚线用于「引用」这种弱关系）。
  *
  * **这张表的 `label` 故意仍是中文**：服务端导出（lib/export-html.ts / lib/export-print.ts）
