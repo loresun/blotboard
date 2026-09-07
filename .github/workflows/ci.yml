@@ -30,7 +30,7 @@ jobs:
       # 也不用 `node-version-file: package.json`——engines 是个 `>=` 区间，
       # setup-node 会解析成「当时最新的那个 Node」，CI 结果就跟着上游发版飘。
       # 这里锁 24.x（当前 LTS，也是开发机在跑的那条线）；engines 只管下限，两处各司其职。
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24.x"
           cache: npm
