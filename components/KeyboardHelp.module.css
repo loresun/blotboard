@@ -1,0 +1,11 @@
+.dialog { width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; padding: 24px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-panel); color: var(--text-main); box-shadow: var(--shadow-float); }
+.dialog::backdrop { background: rgb(38 41 47 / 28%); }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.heading h2 { margin: 0; font-size: 20px; }
+.heading button { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-soft); padding: 6px 12px; cursor: pointer; }
+.dialog p { line-height: 1.7; font-size: 13px; }
+.dialog table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dialog th, .dialog td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border-soft); }
+.dialog th { width: 48%; font-weight: 500; }
+.dialog kbd { font-family: inherit; }
+.dialog a { color: var(--accent-deep); }

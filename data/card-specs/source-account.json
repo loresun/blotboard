@@ -1,0 +1,133 @@
+{
+  "id": "source-account",
+  "version": 1,
+  "name": "采集账号",
+  "category": "external",
+  "icon": "boxes",
+  "description": "追更清单上的一个号：平台主键、追到哪了、为什么追它",
+  "tags": [
+    "采集",
+    "追更"
+  ],
+  "source": {
+    "app": "aidocs",
+    "hint": "知识库追更清单 / 各平台导出工具；accountId 是 fakeid、UID、sec_user_id 这类平台主键"
+  },
+  "card": {
+    "w": 340,
+    "h": 250,
+    "color": "violet"
+  },
+  "display": {
+    "title": "nickname",
+    "body": "why",
+    "badges": [
+      "platform",
+      "docs",
+      "enabled"
+    ],
+    "link": "url",
+    "time": "lastSyncedAt"
+  },
+  "fields": [
+    {
+      "key": "nickname",
+      "label": "账号名",
+      "type": "text",
+      "required": true,
+      "max": 80
+    },
+    {
+      "key": "platform",
+      "label": "平台",
+      "type": "enum",
+      "required": true,
+      "options": [
+        {
+          "value": "wechat",
+          "label": "公众号"
+        },
+        {
+          "value": "bilibili",
+          "label": "B站"
+        },
+        {
+          "value": "xhs",
+          "label": "小红书"
+        },
+        {
+          "value": "douyin",
+          "label": "抖音"
+        },
+        {
+          "value": "podcast",
+          "label": "播客"
+        },
+        {
+          "value": "youtube",
+          "label": "YouTube"
+        },
+        {
+          "value": "twitter",
+          "label": "X"
+        },
+        {
+          "value": "rss",
+          "label": "RSS"
+        }
+      ]
+    },
+    {
+      "key": "accountId",
+      "label": "平台主键",
+      "type": "text",
+      "required": true,
+      "max": 120,
+      "hint": "fakeid / UID / sec_user_id / feed 地址"
+    },
+    {
+      "key": "enabled",
+      "label": "追更中",
+      "type": "bool"
+    },
+    {
+      "key": "docs",
+      "label": "已入库",
+      "type": "number",
+      "unit": "篇"
+    },
+    {
+      "key": "lastNew",
+      "label": "上次新增",
+      "type": "number",
+      "unit": "篇"
+    },
+    {
+      "key": "why",
+      "label": "为什么追它",
+      "type": "longtext",
+      "max": 1000,
+      "hint": "它提供什么别处没有的东西；说不出来就该从清单里摘掉"
+    },
+    {
+      "key": "url",
+      "label": "主页",
+      "type": "url"
+    },
+    {
+      "key": "lastSyncedAt",
+      "label": "最后同步",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "nickname": "示例科技观察",
+    "platform": "wechat",
+    "accountId": "fakeid-example-001",
+    "enabled": true,
+    "docs": 186,
+    "lastNew": 0,
+    "why": "AI 产品侧一线视角，出手快、案例具体，适合做选题的对照面。",
+    "lastSyncedAt": "2026-08-25T00:00:00Z"
+  }
+}

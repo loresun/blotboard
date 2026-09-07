@@ -1,0 +1,31 @@
+# 依赖更新。两个生态都开：npm 是运行时与开发期依赖，github-actions 是 CI 里那几个
+# `uses:` 的版本——后者最容易被忘掉，等到 Actions 停用旧版本那天才发现 CI 红了。
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # 补丁与小版本合并成一个 PR：这个项目的验收是「跑一整套 npm run check」，
+    # 三分半一次，拆成十个 PR 就是把同一套检查跑十遍。
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "chore(ci)"

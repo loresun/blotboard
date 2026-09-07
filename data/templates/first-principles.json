@@ -1,0 +1,120 @@
+{
+  "id": "first-principles",
+  "name": "第一性原理",
+  "category": "mental",
+  "icon": "atom",
+  "description": "把「本来就该这么做」拆成假设与事实，再只用事实重造一遍方案。",
+  "tags": [
+    "拆本质",
+    "重构"
+  ],
+  "cards": [
+    {
+      "id": "claim",
+      "type": "text",
+      "title": "现在的做法 / 结论",
+      "x": -320,
+      "y": -400,
+      "w": 640,
+      "h": 130,
+      "color": "amber",
+      "content": "把「大家都这么做」的那个做法或结论写在这里（替换本句）。"
+    },
+    {
+      "id": "assume-1",
+      "type": "text",
+      "title": "隐含假设 ①",
+      "x": -620,
+      "y": -200,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "这个做法之所以成立，背后默认了什么？找出第一条没被说出口的假设。≤ 60 字。"
+    },
+    {
+      "id": "assume-2",
+      "type": "text",
+      "title": "隐含假设 ②",
+      "x": -160,
+      "y": -200,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "再找一条不同的隐含假设，尤其是「关于成本 / 技术条件」的那类。≤ 60 字。"
+    },
+    {
+      "id": "assume-3",
+      "type": "text",
+      "title": "隐含假设 ③",
+      "x": 300,
+      "y": -200,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "再找一条，尤其是「关于人 / 组织习惯」的那类。≤ 60 字。"
+    },
+    {
+      "id": "bedrock",
+      "type": "text",
+      "title": "剥到底的基本事实",
+      "x": -260,
+      "y": 60,
+      "w": 520,
+      "h": 200,
+      "color": "green",
+      "fillPrompt": "把三条假设逐条追问「这真的是事实，还是只是行业惯例？」，列出 3 条剥到不能再剥的基本事实。每条 ≤ 30 字。"
+    },
+    {
+      "id": "rebuild",
+      "type": "task",
+      "title": "只用基本事实重造一遍",
+      "x": -160,
+      "y": 340,
+      "w": 320,
+      "h": 210,
+      "color": "blue",
+      "task": {
+        "goal": "抛开原做法，只从基本事实出发重新设计一个方案",
+        "priority": "high"
+      },
+      "fillPrompt": "只用上面那几条基本事实，重新设计一个方案，并指出它跟原做法最大的一处不同。≤ 120 字。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "claim",
+      "to": "assume-1"
+    },
+    {
+      "from": "claim",
+      "to": "assume-2"
+    },
+    {
+      "from": "claim",
+      "to": "assume-3"
+    },
+    {
+      "from": "assume-1",
+      "to": "bedrock"
+    },
+    {
+      "from": "assume-2",
+      "to": "bedrock"
+    },
+    {
+      "from": "assume-3",
+      "to": "bedrock"
+    },
+    {
+      "from": "bedrock",
+      "to": "rebuild",
+      "kind": "produces"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 170,
+    "zoom": 0.63
+  },
+  "agentPrompt": "假设要写成「我们默认了…」的句式；基本事实必须是物理 / 经济 / 人性层面上不依赖行业惯例的东西。"
+}

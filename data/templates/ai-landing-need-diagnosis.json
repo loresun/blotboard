@@ -1,0 +1,224 @@
+{
+  "id": "ai-landing-need-diagnosis",
+  "name": "AI 落地需求诊断",
+  "category": "sop",
+  "icon": "stethoscope",
+  "description": "企业 AI 落地的标准前置动作：五问摸清底 → 目标三层 → 交付三段 → 一页纸方案。",
+  "tags": [
+    "咨询",
+    "培训",
+    "AI落地"
+  ],
+  "cards": [
+    {
+      "id": "client",
+      "type": "text",
+      "title": "客户 / 团队基本情况",
+      "x": -380,
+      "y": -430,
+      "w": 560,
+      "h": 140,
+      "color": "amber",
+      "content": "谁、多少人、什么业务、这次为什么找上来（替换本句）。"
+    },
+    {
+      "id": "q1",
+      "type": "task",
+      "title": "① 最耗人力的重复动作",
+      "x": -900,
+      "y": -220,
+      "w": 310,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "最耗人力的重复动作",
+        "priority": "high"
+      },
+      "fillPrompt": "问清团队每天/每周最耗人的重复动作是什么、一次多久、一周几次。写成一段可核对的描述。≤ 90 字。"
+    },
+    {
+      "id": "q2",
+      "type": "task",
+      "title": "② 做好了体现在哪个指标",
+      "x": -560,
+      "y": -220,
+      "w": 310,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "做好了体现在哪个指标",
+        "priority": "high"
+      },
+      "fillPrompt": "问清这件事做好之后，业务上体现在哪个指标（工时 / 转化 / 交付周期），现在是多少。≤ 90 字。"
+    },
+    {
+      "id": "q3",
+      "type": "task",
+      "title": "③ 团队 AI 使用水位",
+      "x": -220,
+      "y": -220,
+      "w": 310,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "团队 AI 使用水位",
+        "priority": "high"
+      },
+      "fillPrompt": "判断团队现在在哪一档：没用过 / 会聊天 / 会搭流程 / 会接 API，并说明依据。≤ 90 字。"
+    },
+    {
+      "id": "q4",
+      "type": "task",
+      "title": "④ 数据与系统边界",
+      "x": 120,
+      "y": -220,
+      "w": 310,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "数据与系统边界",
+        "priority": "high"
+      },
+      "fillPrompt": "问清哪些数据能碰、哪些要审批、谁批，以及现有系统能不能对接。≤ 90 字。"
+    },
+    {
+      "id": "q5",
+      "type": "task",
+      "title": "⑤ 三个月后什么算成功",
+      "x": 460,
+      "y": -220,
+      "w": 310,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "三个月后什么算成功",
+        "priority": "high"
+      },
+      "fillPrompt": "把「成功」写成可验收的一句话：什么指标、到多少、谁来验。≤ 90 字。"
+    },
+    {
+      "id": "goal3",
+      "type": "todo",
+      "title": "目标三层（意识 / 技能 / 能力）",
+      "x": -620,
+      "y": 60,
+      "w": 340,
+      "h": 280,
+      "color": "green",
+      "todo": {
+        "items": [
+          {
+            "text": "意识层：让他们相信这件事跟自己有关"
+          },
+          {
+            "text": "技能层：会用几个具体工具做具体的事"
+          },
+          {
+            "text": "能力层：能自己把新场景搭起来"
+          }
+        ]
+      },
+      "fillPrompt": "按上面五问的答案，给三层各补 1 条针对这家客户的具体目标（写成新的待办条目加进 todo.items，别动原来那三条）。"
+    },
+    {
+      "id": "plan3",
+      "type": "todo",
+      "title": "交付三段（认知 / 工具 / 陪跑）",
+      "x": -240,
+      "y": 60,
+      "w": 340,
+      "h": 280,
+      "color": "violet",
+      "todo": {
+        "items": [
+          {
+            "text": "认知段：讲清能力边界与场景地图"
+          },
+          {
+            "text": "工具段：手把手把工具跑通"
+          },
+          {
+            "text": "陪跑段：拿真实业务跑一轮并复盘"
+          }
+        ]
+      },
+      "fillPrompt": "给三段各补 1 条这次的具体安排（时长 / 形式 / 谁参加），作为新条目加进 todo.items。"
+    },
+    {
+      "id": "flow",
+      "type": "mermaid",
+      "title": "交付节奏",
+      "x": 140,
+      "y": 60,
+      "w": 420,
+      "h": 280,
+      "color": "slate",
+      "mermaid": {
+        "source": "flowchart LR\n  A[需求诊断] --> B[认知段]\n  B --> C[工具段]\n  C --> D[陪跑段]\n  D --> E[复盘 / 续期]"
+      }
+    },
+    {
+      "id": "proposal",
+      "type": "task",
+      "title": "一页纸方案",
+      "x": 600,
+      "y": 60,
+      "w": 340,
+      "h": 280,
+      "color": "blue",
+      "task": {
+        "goal": "把五问答案 + 三层目标 + 三段交付收成一页纸方案",
+        "priority": "urgent"
+      },
+      "fillPrompt": "把上面的内容收成一页纸方案：现状一句、目标三条、交付三段、验收标准一条、报价区间留空。≤ 200 字。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "client",
+      "to": "q1"
+    },
+    {
+      "from": "q1",
+      "to": "q2"
+    },
+    {
+      "from": "q2",
+      "to": "q3"
+    },
+    {
+      "from": "q3",
+      "to": "q4"
+    },
+    {
+      "from": "q4",
+      "to": "q5"
+    },
+    {
+      "from": "q5",
+      "to": "goal3",
+      "kind": "produces"
+    },
+    {
+      "from": "goal3",
+      "to": "plan3",
+      "kind": "enables"
+    },
+    {
+      "from": "plan3",
+      "to": "flow",
+      "kind": "references"
+    },
+    {
+      "from": "plan3",
+      "to": "proposal",
+      "kind": "produces"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 170,
+    "zoom": 0.53
+  },
+  "agentPrompt": "没问到的信息就写「待确认：…」，不要替客户编。五问的答案必须能被客户当面核对。"
+}

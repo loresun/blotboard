@@ -1,0 +1,122 @@
+{
+  "id": "five-w1h",
+  "name": "5W1H 问题画布",
+  "category": "topic",
+  "icon": "compass",
+  "description": "含糊的一句抱怨，拆成六个能回答的问题；六格填完，问题基本就定义清楚了。",
+  "tags": [
+    "定义问题",
+    "结构化"
+  ],
+  "cards": [
+    {
+      "id": "problem",
+      "type": "text",
+      "title": "问题原句",
+      "x": -330,
+      "y": -300,
+      "w": 660,
+      "h": 130,
+      "color": "amber",
+      "content": "把问题按你最初的说法原样写在这里（替换本句）——先别急着提炼，六个格子会替你提炼。"
+    },
+    {
+      "id": "q-what",
+      "type": "text",
+      "title": "What · 到底是什么事",
+      "x": -500,
+      "y": -120,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "一句话说清发生了什么 / 要做什么，去掉形容词。 ≤ 60 字。"
+    },
+    {
+      "id": "q-why",
+      "type": "text",
+      "title": "Why · 为什么要管它",
+      "x": -160,
+      "y": -120,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "不做会怎样？写出代价，不写「很重要」这种空话。 ≤ 60 字。"
+    },
+    {
+      "id": "q-who",
+      "type": "text",
+      "title": "Who · 涉及谁",
+      "x": 180,
+      "y": -120,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "谁受影响、谁能拍板、谁来做，各写一句。 ≤ 60 字。"
+    },
+    {
+      "id": "q-when",
+      "type": "text",
+      "title": "When · 什么时候",
+      "x": -500,
+      "y": 100,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "什么时候开始出现、什么时候必须解决，写出时间点。 ≤ 60 字。"
+    },
+    {
+      "id": "q-where",
+      "type": "text",
+      "title": "Where · 在哪个环节",
+      "x": -160,
+      "y": 100,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "定位到具体环节 / 场景 / 系统，不要写「整体上」。 ≤ 60 字。"
+    },
+    {
+      "id": "q-how",
+      "type": "text",
+      "title": "How · 怎么做",
+      "x": 180,
+      "y": 100,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "给 2 条可执行路径，各写出第一步动作。 ≤ 60 字。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "problem",
+      "to": "q-what"
+    },
+    {
+      "from": "problem",
+      "to": "q-why"
+    },
+    {
+      "from": "problem",
+      "to": "q-who"
+    },
+    {
+      "from": "problem",
+      "to": "q-when"
+    },
+    {
+      "from": "problem",
+      "to": "q-where"
+    },
+    {
+      "from": "problem",
+      "to": "q-how"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 170,
+    "zoom": 1.0
+  },
+  "agentPrompt": "六格各答各的，不要互相重复；能写具体数字 / 名字 / 时间点的地方一律写具体。"
+}

@@ -1,0 +1,7 @@
+# 允许开空白 issue：不是所有反馈都能塞进上面两个模板
+# （比如「文档这句读不懂」），逼人选模板只会让这类反馈干脆不提。
+blank_issues_enabled: true
+contact_links:
+  - name: 安全漏洞（请勿开公开 issue）
+    url: https://github.com/loresun/blotboard/security/advisories/new
+    about: 走 GitHub 的 Private vulnerability reporting 私下报告，细节在修复发布前请勿公开。

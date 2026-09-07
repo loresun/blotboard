@@ -1,0 +1,194 @@
+{
+  "id": "agent-skill",
+  "version": 1,
+  "name": "引用资源",
+  "category": "external",
+  "icon": "boxes",
+  "description": "一条能被 agent 直接装上用的外部资源：skill / MCP / CLI / 库，带安装方式与触发词",
+  "tags": [
+    "资源",
+    "skill",
+    "agent"
+  ],
+  "source": {
+    "app": "manual",
+    "hint": "从推文 / 文章 / 朋友推荐 / GitHub 里发现的好东西，登记进来让 agent 与人都能找到"
+  },
+  "defaultEnabled": true,
+  "card": {
+    "w": 360,
+    "h": 300,
+    "color": "green"
+  },
+  "display": {
+    "title": "name",
+    "subtitle": "purpose",
+    "body": "install",
+    "badges": [
+      "kind",
+      "status"
+    ],
+    "link": "url",
+    "time": "addedAt"
+  },
+  "fields": [
+    {
+      "key": "name",
+      "label": "名称",
+      "type": "text",
+      "required": true,
+      "max": 60,
+      "hint": "资源本名，如 fireworks-tech-graph"
+    },
+    {
+      "key": "purpose",
+      "label": "用途",
+      "type": "text",
+      "required": true,
+      "max": 120,
+      "hint": "一句话说清它是干什么的、什么时候该想起它"
+    },
+    {
+      "key": "kind",
+      "label": "类型",
+      "type": "enum",
+      "options": [
+        {
+          "value": "skill",
+          "label": "Skill"
+        },
+        {
+          "value": "mcp",
+          "label": "MCP"
+        },
+        {
+          "value": "cli",
+          "label": "CLI"
+        },
+        {
+          "value": "library",
+          "label": "库"
+        },
+        {
+          "value": "template",
+          "label": "模板"
+        },
+        {
+          "value": "service",
+          "label": "服务"
+        },
+        {
+          "value": "dataset",
+          "label": "数据集"
+        },
+        {
+          "value": "other",
+          "label": "其他"
+        }
+      ],
+      "hint": "agent 按它决定怎么接入：skill 进技能目录、mcp 配客户端、cli 直接跑"
+    },
+    {
+      "key": "url",
+      "label": "地址",
+      "type": "url",
+      "required": true,
+      "hint": "仓库 / 主页 / 文档，点「打开」就到"
+    },
+    {
+      "key": "install",
+      "label": "安装",
+      "type": "longtext",
+      "required": true,
+      "max": 2000,
+      "hint": "复制就能跑的安装 / 接入命令或步骤；写不清就指向仓库 README 的哪一节"
+    },
+    {
+      "key": "agents",
+      "label": "适配",
+      "type": "tags",
+      "max": 10,
+      "hint": "哪些 agent 能用：claude-code / codex / 任意 MCP 客户端…"
+    },
+    {
+      "key": "triggers",
+      "label": "触发词",
+      "type": "tags",
+      "max": 12,
+      "hint": "用户说什么的时候 agent 应该想起这条资源"
+    },
+    {
+      "key": "usage",
+      "label": "用法",
+      "type": "longtext",
+      "max": 2000,
+      "hint": "关键用法与注意点；有示例给示例"
+    },
+    {
+      "key": "status",
+      "label": "状态",
+      "type": "enum",
+      "options": [
+        {
+          "value": "verified",
+          "label": "已验证"
+        },
+        {
+          "value": "trying",
+          "label": "试用中"
+        },
+        {
+          "value": "todo",
+          "label": "待装"
+        },
+        {
+          "value": "broken",
+          "label": "不可用"
+        },
+        {
+          "value": "archived",
+          "label": "已弃用"
+        }
+      ],
+      "hint": "装完实测过再改「已验证」——没验证过的别冒充能跑"
+    },
+    {
+      "key": "foundFrom",
+      "label": "出处",
+      "type": "url",
+      "hint": "从哪发现的（推文 / 文章链接），回头能追溯"
+    },
+    {
+      "key": "notes",
+      "label": "备注",
+      "type": "longtext",
+      "max": 2000,
+      "hint": "实测手感、翻过的车、适用边界"
+    },
+    {
+      "key": "addedAt",
+      "label": "登记时间",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "name": "example-diagram-skill",
+    "purpose": "把技术流程整理成可检查的图表",
+    "kind": "skill",
+    "url": "https://example.com/skills/diagram",
+    "install": "示意资源：先检查可信来源的 README，再按当前客户端的技能目录规范安装。此链接不是可安装的软件。",
+    "agents": [
+      "codex",
+      "claude-code"
+    ],
+    "triggers": [
+      "画流程图",
+      "整理架构图"
+    ],
+    "usage": "描述输入、处理步骤与输出；生成后核对节点与连线。",
+    "status": "todo",
+    "foundFrom": "https://example.com/articles/diagram-workflow",
+    "notes": "虚构示例，仅用于说明字段；替换为你实际审核过的资源。",
+    "addedAt": 1767225600000
+  }
+}

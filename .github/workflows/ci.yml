@@ -1,0 +1,59 @@
+# CI：与本地验收同一套口径——直接调 `npm run check`（AGENTS.md「开发命令」）。
+# check 内部顺序是 lint:repo → typecheck → build → smoke → e2e：便宜的先跑，
+# 一秒的静态体检能挡住的问题不必等六分钟的 e2e 来告诉你；build 排在 smoke/e2e 前面
+# 是因为那两步都要吃 .next 产物。
+# CI 只保留「装依赖 + 装浏览器」这两件 check 管不了的事，跑什么由 check 一处说了算——
+# 以前 CI 把四条命令各写一步，本地加了检查还得记着回来同步 CI，迟早漂移。
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # 显式锁一条 LTS 线，不写 `20`：`20` 只说大版本，runner 上有可能落到 20.0-20.8，
+      # 而 Next 16 要 ^20.9 || >=22（package.json 的 engines 是 ">=20.9"），那几个小版本直接装不起来。
+      # 也不用 `node-version-file: package.json`——engines 是个 `>=` 区间，
+      # setup-node 会解析成「当时最新的那个 Node」，CI 结果就跟着上游发版飘。
+      # 这里锁 24.x（当前 LTS，也是开发机在跑的那条线）；engines 只管下限，两处各司其职。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+
+      # postinstall 会从 node_modules 同步 Excalidraw 字体资产（scripts/sync-excalidraw-assets.mjs）
+      - name: Install dependencies
+        run: npm ci
+
+      # e2e 那步要用它；装在 check 之前，免得跑到最后一步才因为缺浏览器失败
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # lint:repo → typecheck → build → smoke → e2e
+      # 全程隔离数据目录、不碰仓库 data/；机器上没有任何外部服务，用例自带 mock
+      - name: Check
+        run: npm run check
+        env:
+          CI: "true"
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7

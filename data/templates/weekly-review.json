@@ -1,0 +1,106 @@
+{
+  "id": "weekly-review",
+  "name": "周复盘",
+  "category": "sop",
+  "icon": "calendar",
+  "description": "结果 → 原因 → 规律 → 下周三件事，四步走完，一周的账就结清了。",
+  "tags": [
+    "复盘",
+    "个人管理"
+  ],
+  "cards": [
+    {
+      "id": "week",
+      "type": "text",
+      "title": "本周（几号到几号）",
+      "x": -330,
+      "y": -340,
+      "w": 660,
+      "h": 110,
+      "color": "amber",
+      "content": "写上日期区间和这周原本定的一件大事（替换本句）。"
+    },
+    {
+      "id": "metric",
+      "type": "text",
+      "title": "结果：定的 vs 实际",
+      "x": -500,
+      "y": -190,
+      "w": 460,
+      "h": 200,
+      "color": "blue",
+      "fillPrompt": "逐条列出本周定的目标与实际结果，写数字或明确的完成 / 未完成，不写感受。≤ 100 字。"
+    },
+    {
+      "id": "cause",
+      "type": "text",
+      "title": "原因：一好一坏",
+      "x": 40,
+      "y": -190,
+      "w": 460,
+      "h": 200,
+      "color": "violet",
+      "fillPrompt": "挑一件做成的和一件没做成的，各写清真正的原因（到「下次能改」的颗粒度）。≤ 100 字。"
+    },
+    {
+      "id": "lesson",
+      "type": "text",
+      "title": "规律：能复用的一条",
+      "x": -500,
+      "y": 50,
+      "w": 460,
+      "h": 200,
+      "color": "green",
+      "fillPrompt": "从这周的经历里抽一条能复用到下周的规律，写成「如果…就…」的句式。≤ 60 字。"
+    },
+    {
+      "id": "next",
+      "type": "todo",
+      "title": "下周三件事",
+      "x": 40,
+      "y": 50,
+      "w": 460,
+      "h": 260,
+      "color": "amber",
+      "todo": {
+        "items": [
+          {
+            "text": "最重要的一件"
+          },
+          {
+            "text": "第二件"
+          },
+          {
+            "text": "第三件"
+          }
+        ]
+      },
+      "fillPrompt": "根据上面的结论，给下周三件事各补一条具体动作（含完成标准），作为新条目加进 todo.items。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "week",
+      "to": "metric"
+    },
+    {
+      "from": "metric",
+      "to": "cause"
+    },
+    {
+      "from": "cause",
+      "to": "lesson"
+    },
+    {
+      "from": "lesson",
+      "to": "next",
+      "kind": "produces"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 170,
+    "zoom": 0.92
+  },
+  "agentPrompt": "结果只写事实与数字，原因要追到「下次能改」的颗粒度，规律必须写成可复用的条件句。"
+}

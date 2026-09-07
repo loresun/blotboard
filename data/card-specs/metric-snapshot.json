@@ -1,0 +1,97 @@
+{
+  "id": "metric-snapshot",
+  "version": 1,
+  "name": "指标快照",
+  "category": "insight",
+  "icon": "chart",
+  "description": "一个数字 + 它的口径与变化，摆一排就是一块看板",
+  "tags": [
+    "指标",
+    "数据"
+  ],
+  "card": {
+    "w": 300,
+    "h": 210,
+    "color": "rose"
+  },
+  "display": {
+    "title": "metric",
+    "subtitle": "period",
+    "body": "note",
+    "badges": [
+      "value",
+      "delta",
+      "unit"
+    ],
+    "link": "url",
+    "time": "measuredAt"
+  },
+  "fields": [
+    {
+      "key": "metric",
+      "label": "指标名",
+      "type": "text",
+      "required": true,
+      "max": 60
+    },
+    {
+      "key": "value",
+      "label": "数值",
+      "type": "number",
+      "required": true
+    },
+    {
+      "key": "unit",
+      "label": "单位",
+      "type": "text",
+      "max": 16
+    },
+    {
+      "key": "delta",
+      "label": "变化",
+      "type": "number",
+      "unit": "%",
+      "hint": "与上一周期相比的百分比，跌就写负数"
+    },
+    {
+      "key": "period",
+      "label": "口径",
+      "type": "text",
+      "required": true,
+      "max": 60,
+      "hint": "如「8 月第 3 周 · 去重后」——没有口径的数字没有意义"
+    },
+    {
+      "key": "target",
+      "label": "目标值",
+      "type": "number"
+    },
+    {
+      "key": "note",
+      "label": "说明",
+      "type": "longtext",
+      "max": 1000
+    },
+    {
+      "key": "url",
+      "label": "数据来源",
+      "type": "url"
+    },
+    {
+      "key": "measuredAt",
+      "label": "统计时间",
+      "type": "date",
+      "required": true
+    }
+  ],
+  "example": {
+    "metric": "公众号新增关注",
+    "value": 1280,
+    "unit": "人",
+    "delta": -12.5,
+    "period": "8 月第 3 周 · 自然增长",
+    "target": 2000,
+    "note": "降幅主要来自停更两天。",
+    "measuredAt": "2026-08-24T00:00:00Z"
+  }
+}

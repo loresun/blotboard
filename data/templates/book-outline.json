@@ -1,0 +1,276 @@
+{
+  "id": "book-outline",
+  "name": "一本书大纲骨架",
+  "category": "flow",
+  "icon": "book",
+  "description": "从承诺与读者出发，摊出八章骨架，再挑一章先试稿——先验证语气，再铺量。",
+  "tags": [
+    "写书",
+    "长内容",
+    "流程"
+  ],
+  "cards": [
+    {
+      "id": "skeleton",
+      "type": "mindmap",
+      "title": "全书骨架",
+      "x": -240,
+      "y": -460,
+      "w": 460,
+      "h": 320,
+      "color": "green",
+      "mindmap": {
+        "layout": "right",
+        "root": {
+          "text": "书名（待定）",
+          "children": [
+            {
+              "text": "第 1 章 为什么是现在"
+            },
+            {
+              "text": "第 2 章 最小可用认知"
+            },
+            {
+              "text": "第 3 章 第一个真实场景"
+            },
+            {
+              "text": "第 4 章 常见的三个坑"
+            },
+            {
+              "text": "第 5 章 从一次到每次"
+            },
+            {
+              "text": "第 6 章 规模化之后"
+            },
+            {
+              "text": "第 7 章 边界与代价"
+            },
+            {
+              "text": "第 8 章 接下来做什么"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "promise",
+      "type": "text",
+      "title": "这本书替读者解决什么",
+      "x": -720,
+      "y": -110,
+      "w": 320,
+      "h": 180,
+      "color": "amber",
+      "fillPrompt": "用一句话写清这本书兑现的承诺：读者读完能多做成什么事。≤ 50 字。"
+    },
+    {
+      "id": "reader",
+      "type": "text",
+      "title": "写给谁 · 他现在会什么",
+      "x": -360,
+      "y": -110,
+      "w": 320,
+      "h": 180,
+      "color": "amber",
+      "fillPrompt": "写清目标读者的身份、已有基础、以及他为什么会翻开这本书。≤ 80 字。"
+    },
+    {
+      "id": "sample",
+      "type": "task",
+      "title": "先写哪一章试稿",
+      "x": 0,
+      "y": -110,
+      "w": 320,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "挑一章先写 2000 字试稿，验证语气与颗粒度",
+        "priority": "high"
+      },
+      "fillPrompt": "从八章里挑一章先试稿，说清为什么挑它、试稿要验证什么（语气 / 颗粒度 / 案例够不够）。≤ 80 字。"
+    },
+    {
+      "id": "ch-1",
+      "type": "task",
+      "title": "第 1 章 · 为什么是现在",
+      "x": -720,
+      "y": 140,
+      "w": 330,
+      "h": 210,
+      "color": "slate",
+      "task": {
+        "goal": "开篇：读者此刻的处境与这本书要兑现的承诺",
+        "priority": "medium"
+      },
+      "fillPrompt": "为本章写：一句话主旨 + 3 个小节标题 + 1 个必须出现的真实案例。≤ 120 字，扣住上一张卡的读者设定。"
+    },
+    {
+      "id": "ch-2",
+      "type": "task",
+      "title": "第 2 章 · 最小可用认知",
+      "x": -360,
+      "y": 140,
+      "w": 330,
+      "h": 210,
+      "color": "slate",
+      "task": {
+        "goal": "先给一套够用的基础模型，不求全",
+        "priority": "medium"
+      },
+      "fillPrompt": "为本章写：一句话主旨 + 3 个小节标题 + 1 个必须出现的真实案例。≤ 120 字，扣住上一张卡的读者设定。"
+    },
+    {
+      "id": "ch-3",
+      "type": "task",
+      "title": "第 3 章 · 第一个真实场景",
+      "x": 0,
+      "y": 140,
+      "w": 330,
+      "h": 210,
+      "color": "slate",
+      "task": {
+        "goal": "带读者完整走通一个场景",
+        "priority": "medium"
+      },
+      "fillPrompt": "为本章写：一句话主旨 + 3 个小节标题 + 1 个必须出现的真实案例。≤ 120 字，扣住上一张卡的读者设定。"
+    },
+    {
+      "id": "ch-4",
+      "type": "task",
+      "title": "第 4 章 · 常见的三个坑",
+      "x": 360,
+      "y": 140,
+      "w": 330,
+      "h": 210,
+      "color": "slate",
+      "task": {
+        "goal": "把新手最容易翻车的地方摊开讲",
+        "priority": "medium"
+      },
+      "fillPrompt": "为本章写：一句话主旨 + 3 个小节标题 + 1 个必须出现的真实案例。≤ 120 字，扣住上一张卡的读者设定。"
+    },
+    {
+      "id": "ch-5",
+      "type": "task",
+      "title": "第 5 章 · 从一次到每次",
+      "x": -720,
+      "y": 390,
+      "w": 330,
+      "h": 210,
+      "color": "slate",
+      "task": {
+        "goal": "把做成一次的事变成可复用的流程",
+        "priority": "medium"
+      },
+      "fillPrompt": "为本章写：一句话主旨 + 3 个小节标题 + 1 个必须出现的真实案例。≤ 120 字，扣住上一张卡的读者设定。"
+    },
+    {
+      "id": "ch-6",
+      "type": "task",
+      "title": "第 6 章 · 规模化之后",
+      "x": -360,
+      "y": 390,
+      "w": 330,
+      "h": 210,
+      "color": "slate",
+      "task": {
+        "goal": "量上来之后会变的那些事",
+        "priority": "medium"
+      },
+      "fillPrompt": "为本章写：一句话主旨 + 3 个小节标题 + 1 个必须出现的真实案例。≤ 120 字，扣住上一张卡的读者设定。"
+    },
+    {
+      "id": "ch-7",
+      "type": "task",
+      "title": "第 7 章 · 边界与代价",
+      "x": 0,
+      "y": 390,
+      "w": 330,
+      "h": 210,
+      "color": "slate",
+      "task": {
+        "goal": "什么情况下不该用这套方法",
+        "priority": "medium"
+      },
+      "fillPrompt": "为本章写：一句话主旨 + 3 个小节标题 + 1 个必须出现的真实案例。≤ 120 字，扣住上一张卡的读者设定。"
+    },
+    {
+      "id": "ch-8",
+      "type": "task",
+      "title": "第 8 章 · 接下来做什么",
+      "x": 360,
+      "y": 390,
+      "w": 330,
+      "h": 210,
+      "color": "slate",
+      "task": {
+        "goal": "收尾：读者合上书后的第一步",
+        "priority": "medium"
+      },
+      "fillPrompt": "为本章写：一句话主旨 + 3 个小节标题 + 1 个必须出现的真实案例。≤ 120 字，扣住上一张卡的读者设定。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "promise",
+      "to": "reader",
+      "kind": "enables"
+    },
+    {
+      "from": "reader",
+      "to": "skeleton",
+      "kind": "enables"
+    },
+    {
+      "from": "skeleton",
+      "to": "ch-1",
+      "kind": "produces"
+    },
+    {
+      "from": "skeleton",
+      "to": "ch-2",
+      "kind": "produces"
+    },
+    {
+      "from": "skeleton",
+      "to": "ch-3",
+      "kind": "produces"
+    },
+    {
+      "from": "skeleton",
+      "to": "ch-4",
+      "kind": "produces"
+    },
+    {
+      "from": "skeleton",
+      "to": "ch-5",
+      "kind": "produces"
+    },
+    {
+      "from": "skeleton",
+      "to": "ch-6",
+      "kind": "produces"
+    },
+    {
+      "from": "skeleton",
+      "to": "ch-7",
+      "kind": "produces"
+    },
+    {
+      "from": "skeleton",
+      "to": "ch-8",
+      "kind": "produces"
+    },
+    {
+      "from": "ch-1",
+      "to": "sample",
+      "kind": "references"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 170,
+    "zoom": 0.57
+  },
+  "agentPrompt": "八章之间不能内容重叠；每章的案例必须不同。承诺与读者两张卡是全书的地基，先看它们再写章节。"
+}

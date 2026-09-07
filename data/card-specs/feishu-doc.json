@@ -1,0 +1,111 @@
+{
+  "id": "feishu-doc",
+  "version": 1,
+  "name": "飞书文档",
+  "category": "external",
+  "icon": "doc",
+  "description": "一篇飞书云文档 / 多维表格的索引卡，正文仍在飞书",
+  "tags": [
+    "飞书",
+    "文档"
+  ],
+  "source": {
+    "app": "feishu",
+    "hint": "文档 URL 里的 token，配合 lark-doc 能直接读正文"
+  },
+  "card": {
+    "w": 320,
+    "h": 220,
+    "color": "green"
+  },
+  "display": {
+    "title": "title",
+    "subtitle": "owner",
+    "body": "summary",
+    "badges": [
+      "docType"
+    ],
+    "link": "url",
+    "time": "updatedAt"
+  },
+  "fields": [
+    {
+      "key": "title",
+      "label": "文档标题",
+      "type": "text",
+      "required": true,
+      "max": 200
+    },
+    {
+      "key": "url",
+      "label": "文档链接",
+      "type": "url",
+      "required": true
+    },
+    {
+      "key": "docType",
+      "label": "文档类型",
+      "type": "enum",
+      "options": [
+        {
+          "value": "docx",
+          "label": "文档"
+        },
+        {
+          "value": "sheet",
+          "label": "表格"
+        },
+        {
+          "value": "bitable",
+          "label": "多维表格"
+        },
+        {
+          "value": "mindnote",
+          "label": "思维笔记"
+        },
+        {
+          "value": "slides",
+          "label": "幻灯片"
+        },
+        {
+          "value": "wiki",
+          "label": "知识库"
+        }
+      ]
+    },
+    {
+      "key": "owner",
+      "label": "负责人",
+      "type": "text",
+      "max": 40
+    },
+    {
+      "key": "summary",
+      "label": "一句话摘要",
+      "type": "longtext",
+      "max": 1000,
+      "hint": "这篇文档讲什么、什么时候该回来看"
+    },
+    {
+      "key": "token",
+      "label": "token",
+      "type": "text",
+      "max": 80,
+      "hint": "URL 里那段主键，agent 用它调 open API"
+    },
+    {
+      "key": "updatedAt",
+      "label": "更新时间",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "title": "企业 AI 落地课程大纲 v3",
+    "url": "https://example.feishu.cn/docx/doccnABCDEFG",
+    "docType": "docx",
+    "owner": "张三",
+    "summary": "三段式课程：认知 / 工具 / 陪跑，第 2 段待补案例。",
+    "token": "doccnABCDEFG",
+    "updatedAt": "2026-08-19T02:00:00Z"
+  }
+}

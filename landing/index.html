@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blotboard · 泼墨画板 — 人与任何 agent 共用的一块画板</title>
+<meta name="description" content="本地优先的开源画板：把想法摊开成卡片，人负责思考与批注，任何 agent 通过 HTTP / MCP / ACP 三条门路一起干活。">
+<!-- 单文件自包含，零外部请求。GitHub 链接建仓后替换：https://github.com/blotboard/blotboard -->
+<style>
+  :root {
+    --paper: #f6f2e9;
+    --paper-2: #efe9db;
+    --ink: #1c1813;
+    --ink-2: #5a5248;
+    --ink-3: #8a8172;
+    --seal: #c2422e;
+    --seal-dark: #a33422;
+    --amber: #b98a2b; --blue: #3f6f9e; --green: #4d7c54; --violet: #7a5fa0;
+    --card-bg: #fffdf6;
+    --line: #d8d0bf;
+    --code-bg: #26221c;
+    --code-ink: #ece5d4;
+    --rough: 255px 18px 225px 18px / 18px 225px 18px 255px;
+    --rough-2: 18px 225px 18px 255px / 255px 18px 225px 18px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #17140f;
+      --paper-2: #1e1a13;
+      --ink: #ece5d4;
+      --ink-2: #b3a996;
+      --ink-3: #7d7462;
+      --card-bg: #211d15;
+      --line: #3a3428;
+      --code-bg: #100e0a;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    background-image: radial-gradient(color-mix(in srgb, var(--ink) 12%, transparent) 1px, transparent 1px);
+    background-size: 26px 26px;
+    color: var(--ink);
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+  .kai { font-family: "Kaiti SC", "STKaiti", "KaiTi", "TW-Kai", "Noto Serif SC", serif; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  a { color: inherit; }
+
+  /* ---------- header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav { display: flex; align-items: center; gap: 20px; padding: 12px 0; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; text-decoration: none; }
+  .seal {
+    width: 34px; height: 34px; background: var(--seal); color: #fff;
+    display: grid; place-items: center; font-size: 13px; line-height: 1.1;
+    transform: rotate(-4deg); border-radius: 4px;
+    box-shadow: 0 1px 0 var(--seal-dark);
+    letter-spacing: 1px;
+  }
+  .nav-links { margin-left: auto; display: flex; gap: 18px; font-size: 14px; color: var(--ink-2); }
+  .nav-links a { text-decoration: none; }
+  .nav-links a:hover { color: var(--seal); }
+  .nav-gh {
+    border: 1.5px solid var(--ink); border-radius: 10px 4px 10px 4px;
+    padding: 3px 12px; color: var(--ink) !important; font-weight: 600;
+  }
+  @media (max-width: 720px) { .nav-links a:not(.nav-gh) { display: none; } }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; padding: 84px 0 64px; }
+  .hero-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
+  @media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; } }
+  .splash { position: absolute; z-index: -1; opacity: .1; pointer-events: none; }
+  .splash-1 { top: -60px; left: -140px; width: 560px; }
+  .splash-2 { bottom: -80px; right: -120px; width: 420px; opacity: .07; }
+  .hero h1 { font-size: clamp(40px, 6.4vw, 64px); line-height: 1.18; font-weight: 700; }
+  .hero h1 .drop { color: var(--seal); }
+  .hero .en { margin-top: 10px; font-size: 15px; letter-spacing: 4px; color: var(--ink-3); text-transform: uppercase; }
+  .hero p.lead { margin-top: 22px; font-size: 18px; color: var(--ink-2); max-width: 30em; }
+  .hero p.lead strong { color: var(--ink); }
+  .cta { margin-top: 32px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; text-decoration: none; font-weight: 700; font-size: 15px;
+    padding: 11px 26px; border-radius: var(--rough); border: 2px solid var(--ink);
+  }
+  .btn-primary { background: var(--ink); color: var(--paper); }
+  .btn-primary:hover { background: var(--seal); border-color: var(--seal); color: #fff; }
+  .btn-ghost:hover { border-color: var(--seal); color: var(--seal); }
+
+  /* ---------- generic section ---------- */
+  section { padding: 72px 0; }
+  .sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 12px; }
+  .sec-head h2 { font-size: clamp(26px, 3.6vw, 34px); }
+  .sec-head .no { color: var(--seal); font-size: 15px; font-weight: 700; letter-spacing: 2px; }
+  .sec-sub { color: var(--ink-2); max-width: 44em; margin-bottom: 36px; }
+  .alt { background: var(--paper-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+
+  /* ---------- cards ---------- */
+  .cardish {
+    background: var(--card-bg); border: 2px solid var(--ink);
+    border-radius: var(--rough); padding: 22px 24px;
+    box-shadow: 3px 3px 0 color-mix(in srgb, var(--ink) 18%, transparent);
+  }
+  .cardish h3 { font-size: 17px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .cardish p { font-size: 14.5px; color: var(--ink-2); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  @media (max-width: 900px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } .grid-3 { grid-template-columns: 1fr; } }
+  @media (max-width: 480px) { .grid-4 { grid-template-columns: 1fr; } }
+
+  /* players */
+  .players { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 22px; }
+  @media (max-width: 720px) { .players { grid-template-columns: 1fr; } }
+  .player h3 { font-size: 20px; margin-bottom: 10px; }
+  .player ul { list-style: none; }
+  .player li { padding-left: 22px; position: relative; margin: 8px 0; font-size: 15px; color: var(--ink-2); }
+  .player li::before { content: "✒"; position: absolute; left: 0; color: var(--seal); }
+  .player.agent li::before { content: "⚙"; color: var(--blue); }
+
+  /* loop strip */
+  .loop { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; margin-top: 36px; }
+  .loop .step {
+    flex: 1 1 150px; text-align: center; padding: 18px 10px; position: relative;
+  }
+  .loop .step b { display: block; font-size: 16px; }
+  .loop .step span { font-size: 13px; color: var(--ink-3); }
+  .loop .step:not(:last-child)::after {
+    content: "→"; position: absolute; right: -8px; top: 50%; transform: translateY(-50%);
+    color: var(--seal); font-size: 20px; font-weight: 700;
+  }
+  @media (max-width: 720px) {
+    .loop { flex-direction: column; }
+    .loop .step:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -14px; transform: translateX(-50%); }
+    .loop .step { padding-bottom: 26px; }
+  }
+
+  /* channels */
+  .chan { border-left: 4px solid var(--seal); }
+  .chan.mcp { border-left-color: var(--blue); }
+  .chan.acp { border-left-color: var(--green); }
+  .chan code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px; background: color-mix(in srgb, var(--ink) 8%, transparent);
+    padding: 2px 6px; border-radius: 4px;
+  }
+  .chan .who { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
+
+  /* code block */
+  pre {
+    background: var(--code-bg); color: var(--code-ink);
+    border-radius: 14px 6px 14px 6px; padding: 22px 26px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 14px; line-height: 1.9; overflow-x: auto;
+    border: 2px solid var(--ink);
+    box-shadow: 3px 3px 0 color-mix(in srgb, var(--ink) 18%, transparent);
+  }
+  pre .c { color: #8a8172; }
+  pre .g { color: #9ec49a; }
+
+  /* footer */
+  footer { padding: 44px 0 60px; border-top: 1px solid var(--line); }
+  .foot { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; color: var(--ink-3); font-size: 13.5px; }
+  .foot .seal { width: 30px; height: 30px; font-size: 11px; }
+  .foot a { color: var(--ink-2); }
+
+  /* hero mini board svg text */
+  .mini-board { width: 100%; height: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#top">
+      <span class="seal kai">泼墨</span>
+      <span>Blotboard <span style="color:var(--ink-3);font-weight:400">· 泼墨画板</span></span>
+    </a>
+    <nav class="nav-links">
+      <a href="#share">共用逻辑</a>
+      <a href="#channels">三条门路</a>
+      <a href="#features">特性</a>
+      <a href="#start">快速开始</a>
+      <a class="nav-gh" href="https://github.com/blotboard/blotboard">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <svg class="splash splash-1" viewBox="0 0 400 300" aria-hidden="true">
+      <path fill="currentColor" d="M198 22c46-14 96 4 118 38 20 31 8 62 26 84 17 21 34 40 22 68-13 30-56 34-92 30-28-3-42 22-74 26-38 5-74-10-92-40-16-27-2-52-14-78C80 122 62 96 76 68c15-30 74-32 122-46Z"/>
+      <circle fill="currentColor" cx="352" cy="60" r="10"/>
+      <circle fill="currentColor" cx="370" cy="100" r="5"/>
+      <circle fill="currentColor" cx="40" cy="240" r="7"/>
+    </svg>
+    <svg class="splash splash-2" viewBox="0 0 400 300" aria-hidden="true">
+      <path fill="currentColor" d="M180 40c60-30 140-10 160 40 18 46-20 80-10 120 8 36-30 70-90 66-64-4-90-36-130-50C70 202 30 170 44 122 58 76 120 70 180 40Z"/>
+    </svg>
+
+    <div class="wrap hero-grid">
+      <div>
+        <h1 class="kai">把想法<span class="drop">泼</span>在画板上</h1>
+        <div class="en">Blotboard — an agent-native whiteboard</div>
+        <p class="lead">
+          本地优先的开源画板：想法摊开成卡片、拖拽连线、右键批注。<br>
+          <strong>同一块板，任何 agent 都能一起干活</strong>——读板、写卡、按你的批注改，
+          再把任务领走执行，产出回到板上。
+        </p>
+        <div class="cta">
+          <a class="btn btn-primary" href="https://github.com/blotboard/blotboard">GitHub 仓库</a>
+          <a class="btn btn-ghost" href="#start">快速开始</a>
+        </div>
+      </div>
+
+      <!-- 迷你画板：人卡 + agent 卡 + 连线 + 评论气泡 -->
+      <svg class="mini-board" viewBox="0 0 460 340" aria-label="画板示意：人与 agent 的卡片连成一条流程">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="var(--ink-2)"/>
+          </marker>
+        </defs>
+        <!-- edges -->
+        <path d="M150 86 C 200 86, 210 70, 252 70" fill="none" stroke="var(--ink-2)" stroke-width="2" marker-end="url(#arr)"/>
+        <path d="M96 116 C 96 170, 120 196, 154 208" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arr)"/>
+        <path d="M330 104 C 330 150, 320 180, 296 206" fill="none" stroke="var(--green)" stroke-width="2" marker-end="url(#arr)"/>
+        <!-- card: idea -->
+        <g transform="rotate(-2 96 84)">
+          <rect x="30" y="52" width="120" height="64" rx="10" fill="var(--card-bg)" stroke="var(--ink)" stroke-width="2"/>
+          <rect x="30" y="52" width="120" height="18" rx="9" fill="var(--amber)" opacity=".25"/>
+          <text x="42" y="66" font-size="11" fill="var(--ink)" font-weight="700">想法 · 你写的</text>
+          <text x="42" y="90" font-size="11" fill="var(--ink-2)">开源版要做</text>
+          <text x="42" y="105" font-size="11" fill="var(--ink-2)">插件化卡片</text>
+        </g>
+        <!-- card: task -->
+        <g transform="rotate(1.5 320 72)">
+          <rect x="252" y="40" width="136" height="64" rx="10" fill="var(--card-bg)" stroke="var(--ink)" stroke-width="2"/>
+          <rect x="252" y="40" width="136" height="18" rx="9" fill="var(--blue)" opacity=".25"/>
+          <text x="264" y="54" font-size="11" fill="var(--ink)" font-weight="700">任务 → 派给 agent</text>
+          <text x="264" y="78" font-size="11" fill="var(--ink-2)">拆出卡片插件接口</text>
+          <text x="264" y="93" font-size="11" fill="var(--green)" font-weight="700">● 执行中</text>
+        </g>
+        <!-- card: agent output -->
+        <g transform="rotate(-1 230 240)">
+          <rect x="154" y="196" width="142" height="70" rx="10" fill="var(--card-bg)" stroke="var(--ink)" stroke-width="2"/>
+          <rect x="154" y="196" width="142" height="18" rx="9" fill="var(--green)" opacity=".25"/>
+          <text x="166" y="210" font-size="11" fill="var(--ink)" font-weight="700">产出 · agent 写回</text>
+          <text x="166" y="233" font-size="11" fill="var(--ink-2)">CardPack 接口草案</text>
+          <text x="166" y="248" font-size="11" fill="var(--ink-2)">已按批注改第 2 稿</text>
+        </g>
+        <!-- comment bubble -->
+        <g transform="rotate(6 388 196)">
+          <circle cx="384" cy="192" r="15" fill="var(--seal)"/>
+          <text x="384" y="197" font-size="12" fill="#fff" text-anchor="middle" font-weight="700">1</text>
+        </g>
+        <text x="358" y="232" font-size="10.5" fill="var(--ink-3)">「这里要改」→ agent 来处理</text>
+        <!-- edge label -->
+        <rect x="290" y="148" width="46" height="18" rx="9" fill="var(--paper)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="313" y="161" font-size="10" fill="var(--green)" text-anchor="middle" font-weight="700">产出</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ============ 共用逻辑 ============ -->
+  <section id="share" class="alt">
+    <div class="wrap">
+      <div class="sec-head"><span class="no">壹</span><h2 class="kai">一块画板，两种玩家</h2></div>
+      <p class="sec-sub">
+        画板不是给人看的静态图，也不是 agent 的日志堆——它是<strong>两边共用的工作面</strong>。
+        谁都用同一套卡片、同一套连线、同一套评论，改了对方立刻看见。
+      </p>
+
+      <div class="players">
+        <div class="cardish player">
+          <h3 class="kai">🖋 你</h3>
+          <ul>
+            <li>把想法摊开成卡片，拖拽连线理出结构</li>
+            <li>右键任何地方「加评论」，把要改的当场标出来</li>
+            <li>任务卡一键派出去，回来继续想下一步</li>
+          </ul>
+        </div>
+        <div class="cardish player agent">
+          <h3 class="kai">⚙ 任何 agent</h3>
+          <ul>
+            <li>一次调用读整板 Markdown，评论就摊在对应卡片下面</li>
+            <li>建卡、改卡、连线、整理布局——与你用的是同一套数据</li>
+            <li>按你的批注改，改完回复、标解决，闭环留在板上</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="grid-4">
+        <div class="cardish">
+          <h3><span class="dot" style="background:var(--amber)"></span>卡片是共同语言</h3>
+          <p>16 种预设卡片可插拔；<b>规格卡</b>让「一份 JSON 规格 = 一类新卡片」，不改代码、不用重启。</p>
+        </div>
+        <div class="cardish">
+          <h3><span class="dot" style="background:var(--blue)"></span>信封传阅</h3>
+          <p>卡片批量收发走统一信封格式：先干跑校验、再落板；带 externalId 判重，机器人反复推不刷屏。</p>
+        </div>
+        <div class="cardish">
+          <h3><span class="dot" style="background:var(--seal)"></span>评论即需求</h3>
+          <p>你在板上标「这儿要改」，agent 读未解决评论、动手、回复、标解决——交活的通道钉在卡片上。</p>
+        </div>
+        <div class="cardish">
+          <h3><span class="dot" style="background:var(--green)"></span>深链定位</h3>
+          <p>每张卡有直达链接。agent 干完活回给你的不是「去看看」，而是点开就落在那张卡上。</p>
+        </div>
+      </div>
+
+      <div class="loop">
+        <div class="step"><b class="kai">想法</b><span>摊开成卡片</span></div>
+        <div class="step"><b class="kai">任务</b><span>连线上下游自动进描述</span></div>
+        <div class="step"><b class="kai">派单</b><span>交给任何 agent 执行</span></div>
+        <div class="step"><b class="kai">产出</b><span>回到画板，接着想</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 三条门路 ============ -->
+  <section id="channels">
+    <div class="wrap">
+      <div class="sec-head"><span class="no">贰</span><h2 class="kai">任何 agent，三条门路</h2></div>
+      <p class="sec-sub">
+        不绑定任何一家 agent。接口自描述（schema 有人话版，直接喂 prompt），
+        部署里开了什么能力，<code style="font-family:ui-monospace,Menlo,monospace;font-size:14px">/api/capabilities</code> 一探便知。
+      </p>
+      <div class="grid-3">
+        <div class="cardish chan">
+          <h3>HTTP API</h3>
+          <p>建板、建卡、连线、评论、导出，全部 REST。写操作一个 token，读操作直接来。<code>curl</code> 就能干活。</p>
+          <p class="who">适合：脚本、机器人、任何能发请求的东西</p>
+        </div>
+        <div class="cardish chan mcp">
+          <h3>MCP · agent 操作画板</h3>
+          <p>自带 MCP server（<code>npx blotboard mcp</code>），任何 MCP 客户端直接拿到整套画板工具，不用拼 HTTP。</p>
+          <p class="who">适合：Claude Code、Cursor、任意 MCP 宿主</p>
+        </div>
+        <div class="cardish chan acp">
+          <h3>ACP · 画板派活给 agent</h3>
+          <p>任务卡一键派单：走 Agent Client Protocol 拉起你选的 agent，流式进展、权限确认都回到任务台。</p>
+          <p class="who">适合：Claude Code、Gemini CLI、Codex 等 ACP 生态</p>
+        </div>
+      </div>
+      <p style="margin-top:26px;color:var(--ink-2);font-size:14.5px">
+        另外：每套部署都能现场生成<strong>与它完全一致的 agent 指南</strong>（<span style="font-family:ui-monospace,Menlo,monospace;font-size:13px">GET /api/skill</span>）——
+        装了哪些卡片插件就讲哪些，agent 拿到的说明书永远不过期。
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ 特性 ============ -->
+  <section id="features" class="alt">
+    <div class="wrap">
+      <div class="sec-head"><span class="no">叁</span><h2 class="kai">画板本身也够能打</h2></div>
+      <p class="sec-sub">React Flow 画布 + 文件即数据。没有数据库，没有云依赖，<strong>数据就是你磁盘上的 JSON 文件</strong>，随时整目录带走。</p>
+      <div class="grid-4">
+        <div class="cardish"><h3>16 种预设卡片</h3><p>文本 / 任务 / 待办 / 思维导图 / Mermaid / Excalidraw 手绘 / 网页嵌入…每种都是插件，按需开关。</p></div>
+        <div class="cardish"><h3>规格卡引擎</h3><p>结构化信息按 JSON 规格建卡：会议纪要、决策记录、指标快照…规格没装也能看，内容一字不丢。</p></div>
+        <div class="cardish"><h3>评论批注</h3><p>卡片、连线、画布任意处钉评论；解决后归档不删除，导出与派单时批注一起带走。</p></div>
+        <div class="cardish"><h3>一键整理</h3><p>六种服务端布局：整齐化、按流程串开、分层、分区、网格——都能撤销。</p></div>
+        <div class="cardish"><h3>排版导出</h3><p>整块板导成零外链的单文件 HTML，离线双击能开，打印即 A4 PDF；也可导 Markdown / JSON。</p></div>
+        <div class="cardish"><h3>任务台 + 三种 runner</h3><p>内置 issue 存储开箱即用；ACP 派单、HTTP 对接自建后端，权限请求有专门的「等我处理」入口。</p></div>
+        <div class="cardish"><h3>模板中心</h3><p>SWOT、5 Why、六顶思考帽…13 个思维框架一键铺开，空位交给 agent 填。</p></div>
+        <div class="cardish"><h3>本地优先</h3><p>单进程 Node 服务，跑在你自己的机器上。不注册、不联网、不上传——画板是你的。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 快速开始 ============ -->
+  <section id="start">
+    <div class="wrap">
+      <div class="sec-head"><span class="no">肆</span><h2 class="kai">快速开始</h2></div>
+      <p class="sec-sub">Node 20+，三条命令起板。首启会生成 agent 用的 token 并打印在终端。</p>
+      <pre><span class="c"># 拉下来</span>
+git clone https://github.com/blotboard/blotboard &amp;&amp; cd blotboard
+
+<span class="c"># 装好、跑起来</span>
+npm install &amp;&amp; npm run build &amp;&amp; npm start
+
+<span class="c"># 打开画板</span>
+<span class="g">→ http://127.0.0.1:8567</span>
+
+<span class="c"># 让 agent 进来（MCP 方式）</span>
+npx blotboard mcp</pre>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span class="seal kai">泼墨</span>
+    <span><b>Blotboard · 泼墨画板</b> — 人与任何 agent 共用的一块画板</span>
+    <span style="margin-left:auto"></span>
+    <a href="https://github.com/blotboard/blotboard">GitHub</a>
+    <span>MIT</span>
+    <span>© 2026</span>
+  </div>
+</footer>
+
+</body>
+</html>

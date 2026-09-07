@@ -1,0 +1,97 @@
+{
+  "id": "wechat-article",
+  "version": 1,
+  "name": "公众号文章",
+  "category": "external",
+  "icon": "article",
+  "description": "一篇微信公众号文章的索引卡（正文在你的知识库里）",
+  "tags": [
+    "微信",
+    "选题",
+    "素材"
+  ],
+  "source": {
+    "app": "wechat",
+    "hint": "公众号导出工具 / 知识库采集来的文章"
+  },
+  "card": {
+    "w": 340,
+    "h": 250,
+    "color": "green"
+  },
+  "display": {
+    "title": "title",
+    "subtitle": "account",
+    "body": "digest",
+    "badges": [
+      "readCount"
+    ],
+    "link": "url",
+    "time": "publishedAt"
+  },
+  "fields": [
+    {
+      "key": "title",
+      "label": "标题",
+      "type": "text",
+      "required": true,
+      "max": 200
+    },
+    {
+      "key": "account",
+      "label": "公众号",
+      "type": "text",
+      "required": true,
+      "max": 60
+    },
+    {
+      "key": "url",
+      "label": "原文链接",
+      "type": "url",
+      "required": true
+    },
+    {
+      "key": "digest",
+      "label": "笔记",
+      "type": "longtext",
+      "max": 2000
+    },
+    {
+      "key": "readCount",
+      "label": "阅读数",
+      "type": "number",
+      "unit": "次"
+    },
+    {
+      "key": "tags",
+      "label": "标签",
+      "type": "tags",
+      "max": 8
+    },
+    {
+      "key": "resourceId",
+      "label": "库内 id",
+      "type": "text",
+      "max": 120,
+      "hint": "形如 doc:wechat:12345，拿它能在知识库读全文"
+    },
+    {
+      "key": "publishedAt",
+      "label": "发布时间",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "title": "我们把 AI 落地做砸的三次",
+    "account": "示例科技观察",
+    "url": "https://mp.weixin.qq.com/s/abcdefg",
+    "digest": "三次失败都栽在「工具发下去没人用」，作者归因到没有陪跑。",
+    "readCount": 100000,
+    "tags": [
+      "AI落地",
+      "复盘"
+    ],
+    "resourceId": "doc:wechat:186864",
+    "publishedAt": "2026-08-18T12:00:00Z"
+  }
+}

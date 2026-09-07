@@ -1,0 +1,153 @@
+{
+  "id": "content-piece",
+  "version": 1,
+  "name": "内容成品",
+  "category": "record",
+  "icon": "article",
+  "description": "已经发出去的一条内容：发在哪、数据多少、回头怎么复盘",
+  "tags": [
+    "内容",
+    "复盘"
+  ],
+  "card": {
+    "w": 340,
+    "h": 250,
+    "color": "green"
+  },
+  "display": {
+    "title": "title",
+    "subtitle": "account",
+    "body": "review",
+    "badges": [
+      "platform",
+      "views",
+      "status"
+    ],
+    "link": "url",
+    "time": "publishedAt"
+  },
+  "fields": [
+    {
+      "key": "title",
+      "label": "标题",
+      "type": "text",
+      "required": true,
+      "max": 200
+    },
+    {
+      "key": "platform",
+      "label": "平台",
+      "type": "enum",
+      "required": true,
+      "options": [
+        {
+          "value": "wechat",
+          "label": "公众号"
+        },
+        {
+          "value": "xhs",
+          "label": "小红书"
+        },
+        {
+          "value": "douyin",
+          "label": "抖音"
+        },
+        {
+          "value": "bilibili",
+          "label": "B站"
+        },
+        {
+          "value": "video",
+          "label": "视频号"
+        },
+        {
+          "value": "feishu",
+          "label": "飞书文档"
+        },
+        {
+          "value": "other",
+          "label": "其他"
+        }
+      ]
+    },
+    {
+      "key": "account",
+      "label": "发在哪个号",
+      "type": "text",
+      "max": 60
+    },
+    {
+      "key": "url",
+      "label": "链接",
+      "type": "url"
+    },
+    {
+      "key": "status",
+      "label": "状态",
+      "type": "enum",
+      "options": [
+        {
+          "value": "draft",
+          "label": "草稿"
+        },
+        {
+          "value": "review",
+          "label": "待审"
+        },
+        {
+          "value": "published",
+          "label": "已发"
+        }
+      ]
+    },
+    {
+      "key": "views",
+      "label": "阅读量",
+      "type": "number",
+      "unit": "次"
+    },
+    {
+      "key": "likes",
+      "label": "点赞",
+      "type": "number"
+    },
+    {
+      "key": "conversions",
+      "label": "转化",
+      "type": "number",
+      "hint": "加微 / 报名 / 下单，按你这条内容真正要的那个数填"
+    },
+    {
+      "key": "review",
+      "label": "复盘",
+      "type": "longtext",
+      "max": 2000,
+      "hint": "哪一段留住人、哪一段掉，下次怎么改"
+    },
+    {
+      "key": "topicId",
+      "label": "对应选题",
+      "type": "text",
+      "max": 120,
+      "hint": "选题卡的标题或卡片 id，串起来才看得出转化率"
+    },
+    {
+      "key": "publishedAt",
+      "label": "发布时间",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "title": "我们把 AI 落地做砸的三次",
+    "platform": "wechat",
+    "account": "示例账号",
+    "url": "https://mp.weixin.qq.com/s/example",
+    "status": "published",
+    "views": 12800,
+    "likes": 210,
+    "conversions": 16,
+    "review": "开头三段太铺垫，数据看在第二屏掉了一半；下次把第一个失败现场提到开头。",
+    "topicId": "我们把 AI 落地做砸的三次",
+    "publishedAt": "2026-08-24T12:00:00Z"
+  }
+}

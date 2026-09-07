@@ -1,0 +1,140 @@
+{
+  "id": "meeting-note",
+  "version": 1,
+  "name": "会议纪要",
+  "category": "record",
+  "icon": "calendar",
+  "description": "一次会的结论与待办，摊在画板上好接着连线",
+  "tags": [
+    "会议",
+    "纪要"
+  ],
+  "card": {
+    "w": 360,
+    "h": 280,
+    "color": "amber"
+  },
+  "display": {
+    "title": "topic",
+    "subtitle": "host",
+    "body": "decisions",
+    "badges": [
+      "kind"
+    ],
+    "link": "url",
+    "time": "heldAt"
+  },
+  "fields": [
+    {
+      "key": "topic",
+      "label": "议题",
+      "type": "text",
+      "required": true,
+      "max": 120
+    },
+    {
+      "key": "heldAt",
+      "label": "开会时间",
+      "type": "date",
+      "required": true
+    },
+    {
+      "key": "host",
+      "label": "主持",
+      "type": "text",
+      "max": 40
+    },
+    {
+      "key": "kind",
+      "label": "会议类型",
+      "type": "enum",
+      "options": [
+        {
+          "value": "kickoff",
+          "label": "启动"
+        },
+        {
+          "value": "sync",
+          "label": "同步"
+        },
+        {
+          "value": "review",
+          "label": "评审"
+        },
+        {
+          "value": "retro",
+          "label": "复盘"
+        },
+        {
+          "value": "client",
+          "label": "客户"
+        }
+      ]
+    },
+    {
+      "key": "attendees",
+      "label": "参会人",
+      "type": "tags",
+      "max": 15
+    },
+    {
+      "key": "decisions",
+      "label": "结论",
+      "type": "longtext",
+      "required": true,
+      "max": 3000
+    },
+    {
+      "key": "actions",
+      "label": "待办",
+      "type": "list",
+      "max": 20,
+      "item": [
+        {
+          "key": "what",
+          "label": "事项",
+          "type": "text"
+        },
+        {
+          "key": "owner",
+          "label": "负责人",
+          "type": "text"
+        },
+        {
+          "key": "due",
+          "label": "截止",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "key": "url",
+      "label": "纪要链接",
+      "type": "url",
+      "hint": "飞书妙记 / 云文档"
+    }
+  ],
+  "example": {
+    "topic": "AI 落地课第二段返工",
+    "heldAt": "2026-08-22T06:00:00Z",
+    "host": "张三",
+    "kind": "review",
+    "attendees": [
+      "李四",
+      "王五"
+    ],
+    "decisions": "第二段砍掉三个工具演示，换成一个贯穿案例；下周三前出脚本。",
+    "actions": [
+      {
+        "what": "重写第二段脚本",
+        "owner": "李四",
+        "due": "8/27"
+      },
+      {
+        "what": "补客户案例素材",
+        "owner": "王五",
+        "due": "8/25"
+      }
+    ]
+  }
+}

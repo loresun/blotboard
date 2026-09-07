@@ -1,0 +1,107 @@
+{
+  "id": "feishu-message",
+  "version": 1,
+  "name": "飞书消息",
+  "category": "external",
+  "icon": "message",
+  "description": "群里的一条飞书消息 / 机器人通知，摊到画板上当线索",
+  "tags": [
+    "飞书",
+    "IM"
+  ],
+  "source": {
+    "app": "feishu",
+    "hint": "飞书机器人 webhook 回调，或 open API 的 im/v1/messages"
+  },
+  "card": {
+    "w": 340,
+    "h": 250,
+    "color": "blue"
+  },
+  "display": {
+    "title": "sender",
+    "subtitle": "chat",
+    "body": "text",
+    "badges": [
+      "msgType"
+    ],
+    "link": "url",
+    "time": "sentAt"
+  },
+  "fields": [
+    {
+      "key": "sender",
+      "label": "发送人",
+      "type": "text",
+      "required": true,
+      "max": 60
+    },
+    {
+      "key": "chat",
+      "label": "群聊",
+      "type": "text",
+      "max": 80
+    },
+    {
+      "key": "text",
+      "label": "消息正文",
+      "type": "longtext",
+      "required": true,
+      "max": 4000
+    },
+    {
+      "key": "msgType",
+      "label": "消息类型",
+      "type": "enum",
+      "options": [
+        {
+          "value": "text",
+          "label": "文本"
+        },
+        {
+          "value": "post",
+          "label": "富文本"
+        },
+        {
+          "value": "card",
+          "label": "卡片"
+        },
+        {
+          "value": "file",
+          "label": "文件"
+        },
+        {
+          "value": "image",
+          "label": "图片"
+        }
+      ]
+    },
+    {
+      "key": "mentioned",
+      "label": "@ 到的人",
+      "type": "tags",
+      "max": 10
+    },
+    {
+      "key": "url",
+      "label": "消息链接",
+      "type": "url",
+      "hint": "飞书里能点开这条消息的链接"
+    },
+    {
+      "key": "sentAt",
+      "label": "发送时间",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "sender": "张三",
+    "chat": "AI 落地推进群",
+    "text": "客户希望下周三前看到第一版课程大纲，重点是「工具怎么真正用起来」。",
+    "msgType": "text",
+    "mentioned": [
+      "李四"
+    ],
+    "sentAt": "2026-08-20T10:12:00Z"
+  }
+}

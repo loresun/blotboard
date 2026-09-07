@@ -1,0 +1,50 @@
+name: 功能建议 · Feature request
+description: 想要一种新卡片、新布局、新接口或别的改进
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        动手写代码之前先自问一句（[CONTRIBUTING.md](../blob/HEAD/CONTRIBUTING.md) 里也是这么说的）：
+        **这个需求能不能下沉成一份规格 JSON**（`data/card-specs/`，热插拔、零代码）？
+        能的话通常比新写一个卡片包更快，也更容易被别人复用。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决的问题
+      description: 先说场景，别直接说方案——同一个问题往往有更省事的解法。
+      placeholder: 我想把一批会议纪要摊在板上按时间看，但现在 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你设想的样子
+      description: 界面上长什么样、agent 那侧怎么调用。
+    validations:
+      required: false
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 大致属于哪一类
+      options:
+        - 新的卡片包 / 卡片规格
+        - 画布与整理（布局、连线、分组）
+        - Agent 接口（HTTP API / MCP / Skill）
+        - 任务与 Runner
+        - 导入导出与备份
+        - 界面文案 / 国际化
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 你试过的替代做法
+      description: 现在你是怎么绕过去的？绕不过去也请说一句，这是判断优先级的关键信息。
+    validations:
+      required: false

@@ -1,0 +1,118 @@
+{
+  "id": "model-bench",
+  "version": 1,
+  "name": "模型实测",
+  "category": "insight",
+  "icon": "chart",
+  "description": "某个模型在某个任务上的实测结论：多快、多贵、能不能用",
+  "tags": [
+    "模型",
+    "实测"
+  ],
+  "card": {
+    "w": 340,
+    "h": 260,
+    "color": "slate"
+  },
+  "display": {
+    "title": "model",
+    "subtitle": "task",
+    "body": "verdict",
+    "badges": [
+      "score",
+      "provider"
+    ],
+    "link": "url",
+    "time": "testedAt"
+  },
+  "fields": [
+    {
+      "key": "model",
+      "label": "模型",
+      "type": "text",
+      "required": true,
+      "max": 80
+    },
+    {
+      "key": "task",
+      "label": "任务",
+      "type": "text",
+      "required": true,
+      "max": 80,
+      "hint": "润色 / ASR 后处理 / 长文摘要 / 生图…"
+    },
+    {
+      "key": "provider",
+      "label": "走哪条路",
+      "type": "text",
+      "max": 60,
+      "hint": "自建网关 / 本地 ollama / 官方 API"
+    },
+    {
+      "key": "score",
+      "label": "评分",
+      "type": "number",
+      "unit": "分",
+      "hint": "你自己的口径，写清在 sample 里"
+    },
+    {
+      "key": "speed",
+      "label": "速度",
+      "type": "text",
+      "max": 60,
+      "hint": "如 ~100 tok/s、整篇 40s"
+    },
+    {
+      "key": "cost",
+      "label": "成本",
+      "type": "text",
+      "max": 60,
+      "hint": "如 $0.006/张、本地免费"
+    },
+    {
+      "key": "sample",
+      "label": "样本与口径",
+      "type": "text",
+      "max": 200,
+      "required": true,
+      "hint": "几篇、什么类型、怎么打分——没有口径的评分等于没测"
+    },
+    {
+      "key": "verdict",
+      "label": "结论",
+      "type": "longtext",
+      "required": true,
+      "max": 2000,
+      "hint": "能不能上生产、在什么场景下用它"
+    },
+    {
+      "key": "failure",
+      "label": "翻车点",
+      "type": "longtext",
+      "max": 1500,
+      "hint": "什么输入下它会坏——这一栏比评分值钱"
+    },
+    {
+      "key": "url",
+      "label": "完整报告",
+      "type": "url"
+    },
+    {
+      "key": "testedAt",
+      "label": "实测时间",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "model": "deepseek-v4",
+    "task": "ASR 口播润色",
+    "provider": "自建模型网关",
+    "score": 9,
+    "speed": "整篇 ~40s",
+    "cost": "约 ¥0.01/篇",
+    "sample": "4 篇 raw 转写 × 8 模型盲评，按专名准确/断句/删口水三项打分",
+    "verdict": "与本地 27b 并列第一，可作主力；专名必须配术语表，否则人名会飘。",
+    "failure": "没给术语表时把嘉宾名换成同音字；超长单段落会漏删口水词。",
+    "testedAt": "2026-08-18T00:00:00Z"
+  }
+}
