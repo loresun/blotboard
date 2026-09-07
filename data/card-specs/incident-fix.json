@@ -1,0 +1,126 @@
+{
+  "id": "incident-fix",
+  "version": 1,
+  "name": "排障记录",
+  "category": "record",
+  "icon": "bug",
+  "description": "一次故障的完整链条：现象 → 根因 → 修法 → 提交，回头能查能复用",
+  "tags": [
+    "排障",
+    "根因"
+  ],
+  "card": {
+    "w": 360,
+    "h": 280,
+    "color": "rose"
+  },
+  "display": {
+    "title": "title",
+    "subtitle": "scope",
+    "body": "rootCause",
+    "badges": [
+      "status",
+      "pushed"
+    ],
+    "time": "fixedAt"
+  },
+  "fields": [
+    {
+      "key": "title",
+      "label": "一句话",
+      "type": "text",
+      "required": true,
+      "max": 120,
+      "hint": "如「播客下载饿死」——之后靠它检索"
+    },
+    {
+      "key": "scope",
+      "label": "影响面",
+      "type": "text",
+      "max": 80,
+      "hint": "哪个服务 / 哪条链路"
+    },
+    {
+      "key": "symptom",
+      "label": "现象",
+      "type": "longtext",
+      "required": true,
+      "max": 2000,
+      "hint": "当时看到的是什么，别写成结论"
+    },
+    {
+      "key": "rootCause",
+      "label": "根因",
+      "type": "longtext",
+      "required": true,
+      "max": 2000,
+      "hint": "真正的原因；「看起来像」不算"
+    },
+    {
+      "key": "fix",
+      "label": "修法",
+      "type": "longtext",
+      "required": true,
+      "max": 2000
+    },
+    {
+      "key": "commit",
+      "label": "提交",
+      "type": "text",
+      "max": 80
+    },
+    {
+      "key": "pushed",
+      "label": "已 push",
+      "type": "bool"
+    },
+    {
+      "key": "status",
+      "label": "状态",
+      "type": "enum",
+      "required": true,
+      "options": [
+        {
+          "value": "fixed",
+          "label": "已修"
+        },
+        {
+          "value": "mitigated",
+          "label": "绕过"
+        },
+        {
+          "value": "watching",
+          "label": "观察中"
+        },
+        {
+          "value": "open",
+          "label": "没解决"
+        }
+      ]
+    },
+    {
+      "key": "recurrence",
+      "label": "复发信号",
+      "type": "text",
+      "max": 200,
+      "hint": "下次出现什么就说明它又回来了"
+    },
+    {
+      "key": "fixedAt",
+      "label": "处理时间",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "title": "下载队列饿死：pending 一堆却 0 下载",
+    "scope": "示例服务 · 抓取管线",
+    "symptom": "队列里 pending 很多，监控上下载数长期为 0，没有任何报错。",
+    "rootCause": "清道夫任务把还在跑的慢任务误判成卡死，复位回 pending，形成僵尸循环占满并发槽，真下载被饿死。",
+    "fix": "慢任务卡死改回独立的重试状态；取件只拉没有产物的；全局并发从 100 收到 48。",
+    "commit": "abc1234",
+    "pushed": true,
+    "status": "fixed",
+    "recurrence": "再看到 pending 涨但下载数长期为 0，先查卡死复位逻辑",
+    "fixedAt": "2026-08-20T00:00:00Z"
+  }
+}

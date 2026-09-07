@@ -1,0 +1,72 @@
+# 用 issue forms（YAML）而不是 markdown 模板：字段能设成必填，
+# 省掉「报了 bug 但没说版本 / 没说怎么复现」的第一轮来回。
+name: 报告缺陷 · Bug report
+description: 画板哪里不对劲、报错或行为与文档不符
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。**安全问题请不要开公开 issue**，走 [SECURITY.md](../blob/HEAD/SECURITY.md) 私下报告。
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 出了什么问题
+      description: 你期望发生什么、实际发生了什么。
+      placeholder: 双击画布新建代码卡后，卡面空白，控制台报 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 从打开画板开始，一步一步写到出问题那一下。
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`npm run doctor` 的输出"
+      description: |
+        它会打活服务，出一份可以直接贴进来的 Markdown 诊断报告（版本 / 端口 / 数据目录 /
+        集成可达性 / 板数）。**它只读、不改数据，也不打印 token 的值**，只报 token 来源类型。
+        服务连不上时它给的是排查步骤——那份输出一样有用，贴上来即可。
+      render: markdown
+    validations:
+      required: false
+
+  - type: dropdown
+    id: storage
+    attributes:
+      label: 数据存储方式
+      description: 顶栏左上角那颗胶囊显示的就是当前模式。
+      options:
+        - 服务端文件（默认）
+        - 浏览器隔离存储
+        - 不确定
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: 运行环境
+      description: 操作系统、浏览器、Node 版本。
+      placeholder: macOS 15 · Chrome 141 · Node 24.3.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志或截图
+      description: 浏览器控制台报错、服务端启动日志、画面截图。贴之前请自己扫一眼有没有私人信息。
+    validations:
+      required: false

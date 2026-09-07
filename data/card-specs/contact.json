@@ -1,0 +1,114 @@
+{
+  "id": "contact",
+  "version": 1,
+  "name": "联系人",
+  "category": "record",
+  "icon": "user",
+  "description": "一个人：怎么找到他、他能帮上什么、上次聊到哪",
+  "tags": [
+    "人脉",
+    "客户"
+  ],
+  "card": {
+    "w": 300,
+    "h": 230,
+    "color": "blue"
+  },
+  "display": {
+    "title": "name",
+    "subtitle": "org",
+    "body": "note",
+    "badges": [
+      "channel",
+      "role"
+    ],
+    "time": "lastTouchAt"
+  },
+  "fields": [
+    {
+      "key": "name",
+      "label": "姓名",
+      "type": "text",
+      "required": true,
+      "max": 40
+    },
+    {
+      "key": "org",
+      "label": "公司",
+      "type": "text",
+      "max": 80
+    },
+    {
+      "key": "role",
+      "label": "角色",
+      "type": "text",
+      "max": 40
+    },
+    {
+      "key": "channel",
+      "label": "渠道",
+      "type": "enum",
+      "options": [
+        {
+          "value": "wechat",
+          "label": "微信"
+        },
+        {
+          "value": "feishu",
+          "label": "飞书"
+        },
+        {
+          "value": "email",
+          "label": "邮件"
+        },
+        {
+          "value": "phone",
+          "label": "电话"
+        },
+        {
+          "value": "other",
+          "label": "其他"
+        }
+      ],
+      "hint": "微信 / 飞书 / 邮件 / 电话"
+    },
+    {
+      "key": "handle",
+      "label": "账号",
+      "type": "text",
+      "max": 80,
+      "hint": "微信号 / 邮箱 / 手机号"
+    },
+    {
+      "key": "note",
+      "label": "备注",
+      "type": "longtext",
+      "max": 1500,
+      "hint": "他关心什么、上次聊到哪、下次找他干嘛"
+    },
+    {
+      "key": "tags",
+      "label": "标签",
+      "type": "tags",
+      "max": 8
+    },
+    {
+      "key": "lastTouchAt",
+      "label": "上次联系",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "name": "王五",
+    "org": "某制造业集团",
+    "role": "数字化负责人",
+    "channel": "feishu",
+    "handle": "wangwu@example.com",
+    "note": "关心一线工人真的会用；对纯讲概念的课很反感。",
+    "tags": [
+      "制造业",
+      "决策人"
+    ],
+    "lastTouchAt": "2026-08-15T08:00:00Z"
+  }
+}

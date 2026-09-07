@@ -1,0 +1,34 @@
+node_modules/
+.next/
+out/
+data/*
+!data/.gitkeep
+# 模板与内置卡片规格是随仓库发布的资产，不是用户数据
+!data/templates/
+!data/card-specs/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+.blotboard-runtime/
+release/
+*.tgz
+tsconfig.tsbuildinfo
+next-env.d.ts
+# Excalidraw 字体：十几 MB，由 scripts/sync-excalidraw-assets.mjs 从 node_modules 同步
+public/excalidraw-assets/
+test-results/
+playwright-report/
+# 本机 pm2 配置可能带私有路径（如共用 Goal Agent token 的 settings 路径）；模板见 ecosystem.config.example.cjs
+ecosystem.config.cjs
+# 本机额外的私有痕迹模式（scripts/lint-repo.mjs 读它）：里面通常是真实姓名一类的串，不该进公开仓库
+scripts/lint-repo.local.json
+# 画板自己在首启迁移时留下的整份备份（`.migration-backup-<时间戳>/`）：
+# 里面是**真实画板数据**，几十 MB 起步，和 data/ 同等待遇，绝不能进 git。
+.migration-backup-*/
+# 临时探针脚本（排障时随手写的 `probe-xxx.tmp.mjs`），跑完即弃
+*.tmp.mjs
+# /llms.txt 由服务现场生成（lib/llms-txt.ts），不再落静态文件；
+# 巡检类 agent 仍可能往仓库根写一份，忽略掉即可——服务不读它
+/llms.txt

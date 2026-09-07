@@ -1,0 +1,13 @@
+{
+  "name": "blotboard",
+  "version": "0.0.1",
+  "description": "Blotboard · 泼墨画板 — an agent-native whiteboard (placeholder, full release coming)",
+  "license": "MIT",
+  "keywords": [
+    "whiteboard",
+    "canvas",
+    "agent",
+    "local-first",
+    "blotboard"
+  ]
+}

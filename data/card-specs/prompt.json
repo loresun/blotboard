@@ -1,0 +1,91 @@
+{
+  "id": "prompt",
+  "version": 1,
+  "name": "提示词",
+  "category": "record",
+  "icon": "clipboard",
+  "description": "一条可复用的提示词模板：给谁用、system 怎么写、变量有哪些",
+  "tags": [
+    "提示词",
+    "模板"
+  ],
+  "card": {
+    "w": 360,
+    "h": 300,
+    "color": "violet"
+  },
+  "display": {
+    "title": "name",
+    "subtitle": "purpose",
+    "body": "user",
+    "badges": [
+      "model"
+    ]
+  },
+  "fields": [
+    {
+      "key": "name",
+      "label": "名称",
+      "type": "text",
+      "required": true,
+      "max": 60,
+      "hint": "一眼认出这条是干什么的，如「公众号选题打分」"
+    },
+    {
+      "key": "purpose",
+      "label": "用途",
+      "type": "text",
+      "required": true,
+      "max": 120,
+      "hint": "一句话说清什么时候该拿它出来用"
+    },
+    {
+      "key": "user",
+      "label": "正文",
+      "type": "longtext",
+      "required": true,
+      "max": 4000,
+      "hint": "真正发出去的那段；变量用 {topic} 这种花括号占位"
+    },
+    {
+      "key": "system",
+      "label": "系统提示",
+      "type": "longtext",
+      "max": 2000,
+      "hint": "角色 / 口径 / 禁忌；没有就留空"
+    },
+    {
+      "key": "variables",
+      "label": "变量",
+      "type": "tags",
+      "max": 12,
+      "hint": "正文里出现的占位符，如 topic、audience —— 照着填就不会漏参数"
+    },
+    {
+      "key": "model",
+      "label": "模型",
+      "type": "text",
+      "max": 60,
+      "hint": "调过哪个模型效果最好；不挑模型就留空"
+    },
+    {
+      "key": "notes",
+      "label": "备注",
+      "type": "longtext",
+      "max": 2000,
+      "hint": "实测手感、翻过的车、什么情况下别用"
+    }
+  ],
+  "example": {
+    "name": "长文提炼三条要点",
+    "purpose": "把一篇长文压成三条能直接发群里的要点",
+    "user": "把下面这篇文章提炼成 3 条要点，每条不超过 40 字，只写文章真讲了的事，不许补充背景知识。\n\n受众：{audience}\n\n正文：\n{article}",
+    "system": "你是一个只做信息压缩的编辑：不发挥、不评价、不加形容词。",
+    "variables": [
+      "audience",
+      "article"
+    ],
+    "model": "任意长上下文模型",
+    "notes": "文章超过 2 万字先切段再逐段提炼，否则后半篇会被略掉。"
+  }
+}

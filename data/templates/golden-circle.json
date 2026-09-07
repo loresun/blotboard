@@ -1,0 +1,99 @@
+{
+  "id": "golden-circle",
+  "name": "黄金圈 Why-How-What",
+  "category": "mental",
+  "icon": "circle",
+  "description": "从「为什么」而不是「是什么」开始讲，用来打磨定位、自我介绍与提案开场。",
+  "tags": [
+    "表达",
+    "定位",
+    "说服"
+  ],
+  "cards": [
+    {
+      "id": "circle",
+      "type": "svg",
+      "title": "黄金圈",
+      "x": -190,
+      "y": -420,
+      "w": 380,
+      "h": 300,
+      "color": "violet",
+      "content": "从里往外：先 Why，再 How，最后才 What。",
+      "svg": {
+        "source": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 300 300\"><circle cx=\"150\" cy=\"150\" r=\"140\" fill=\"#fdf6e6\" stroke=\"#e2c069\" stroke-width=\"2\"/><circle cx=\"150\" cy=\"150\" r=\"95\" fill=\"#eef3fb\" stroke=\"#8fb0e0\" stroke-width=\"2\"/><circle cx=\"150\" cy=\"150\" r=\"50\" fill=\"#f6eefb\" stroke=\"#b39ddb\" stroke-width=\"2\"/><text x=\"150\" y=\"155\" text-anchor=\"middle\" font-size=\"22\" font-weight=\"700\" fill=\"#6b46c1\">WHY</text><text x=\"150\" y=\"80\" text-anchor=\"middle\" font-size=\"16\" fill=\"#3c5fb5\">HOW</text><text x=\"150\" y=\"34\" text-anchor=\"middle\" font-size=\"16\" fill=\"#a5651c\">WHAT</text></svg>"
+      }
+    },
+    {
+      "id": "why",
+      "type": "text",
+      "title": "Why · 为什么做这件事",
+      "x": -620,
+      "y": -60,
+      "w": 300,
+      "h": 180,
+      "color": "violet",
+      "fillPrompt": "写出信念层面的理由（为什么这件事值得存在），不许写「为了赚钱 / 为了增长」这类结果。≤ 60 字。"
+    },
+    {
+      "id": "how",
+      "type": "text",
+      "title": "How · 你跟别人有什么不同",
+      "x": -150,
+      "y": -60,
+      "w": 300,
+      "h": 180,
+      "color": "blue",
+      "fillPrompt": "写出做法上的独特之处：别人怎么做、你怎么做、差在哪。≤ 60 字。"
+    },
+    {
+      "id": "what",
+      "type": "text",
+      "title": "What · 具体交付什么",
+      "x": 320,
+      "y": -60,
+      "w": 300,
+      "h": 180,
+      "color": "amber",
+      "fillPrompt": "写出对方实际拿到手的东西（产品 / 服务 / 内容形态）。≤ 60 字。"
+    },
+    {
+      "id": "pitch",
+      "type": "text",
+      "title": "按黄金圈顺序讲一遍",
+      "x": -260,
+      "y": 200,
+      "w": 520,
+      "h": 190,
+      "color": "green",
+      "fillPrompt": "用 Why → How → What 的顺序，把上面三张卡串成 3 句话的开场白，直接可念出来。≤ 120 字。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "circle",
+      "to": "why"
+    },
+    {
+      "from": "why",
+      "to": "how",
+      "kind": "enables"
+    },
+    {
+      "from": "how",
+      "to": "what",
+      "kind": "enables"
+    },
+    {
+      "from": "what",
+      "to": "pitch",
+      "kind": "produces"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 170,
+    "zoom": 0.74
+  },
+  "agentPrompt": "顺序不能反：Why 是信念，How 是做法差异，What 才是交付物。最后那张卡要能直接念出来。"
+}

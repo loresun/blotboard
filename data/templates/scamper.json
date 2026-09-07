@@ -1,0 +1,166 @@
+{
+  "id": "scamper",
+  "name": "SCAMPER 改造",
+  "category": "topic",
+  "icon": "shuffle",
+  "description": "七个动词轮着问一遍，把手上已有的东西改出新版本，而不是从零想新点子。",
+  "tags": [
+    "选题",
+    "改造",
+    "创意"
+  ],
+  "cards": [
+    {
+      "id": "target",
+      "type": "text",
+      "title": "改造对象",
+      "x": -320,
+      "y": -170,
+      "w": 640,
+      "h": 130,
+      "color": "amber",
+      "content": "要改造的产品 / 内容 / 流程写在这里（替换本句），越具体越好。"
+    },
+    {
+      "id": "v-s",
+      "type": "task",
+      "title": "S 替代 Substitute",
+      "x": -700,
+      "y": 60,
+      "w": 300,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "哪个环节 / 材料 / 角色可以换成别的？",
+        "priority": "medium"
+      },
+      "fillPrompt": "哪个环节 / 材料 / 角色可以换成别的？ 针对上方「改造对象」给 2 条具体改法，每条 ≤ 40 字，要能直接试。"
+    },
+    {
+      "id": "v-c",
+      "type": "task",
+      "title": "C 合并 Combine",
+      "x": -370,
+      "y": 60,
+      "w": 300,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "跟什么合在一起会更值钱？",
+        "priority": "medium"
+      },
+      "fillPrompt": "跟什么合在一起会更值钱？ 针对上方「改造对象」给 2 条具体改法，每条 ≤ 40 字，要能直接试。"
+    },
+    {
+      "id": "v-a",
+      "type": "task",
+      "title": "A 调整 Adapt",
+      "x": -40,
+      "y": 60,
+      "w": 300,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "别处成熟的做法，怎么搬过来适配？",
+        "priority": "medium"
+      },
+      "fillPrompt": "别处成熟的做法，怎么搬过来适配？ 针对上方「改造对象」给 2 条具体改法，每条 ≤ 40 字，要能直接试。"
+    },
+    {
+      "id": "v-m",
+      "type": "task",
+      "title": "M 放大缩小 Modify",
+      "x": 290,
+      "y": 60,
+      "w": 300,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "放大哪一点、砍掉哪一点会更有记忆度？",
+        "priority": "medium"
+      },
+      "fillPrompt": "放大哪一点、砍掉哪一点会更有记忆度？ 针对上方「改造对象」给 2 条具体改法，每条 ≤ 40 字，要能直接试。"
+    },
+    {
+      "id": "v-p",
+      "type": "task",
+      "title": "P 他用 Put to other use",
+      "x": -535,
+      "y": 300,
+      "w": 300,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "同一个东西还能拿去干什么？",
+        "priority": "medium"
+      },
+      "fillPrompt": "同一个东西还能拿去干什么？ 针对上方「改造对象」给 2 条具体改法，每条 ≤ 40 字，要能直接试。"
+    },
+    {
+      "id": "v-e",
+      "type": "task",
+      "title": "E 消除 Eliminate",
+      "x": -205,
+      "y": 300,
+      "w": 300,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "去掉什么反而更好？",
+        "priority": "medium"
+      },
+      "fillPrompt": "去掉什么反而更好？ 针对上方「改造对象」给 2 条具体改法，每条 ≤ 40 字，要能直接试。"
+    },
+    {
+      "id": "v-r",
+      "type": "task",
+      "title": "R 重排 Rearrange",
+      "x": 125,
+      "y": 300,
+      "w": 300,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "顺序 / 结构倒过来会怎样？",
+        "priority": "medium"
+      },
+      "fillPrompt": "顺序 / 结构倒过来会怎样？ 针对上方「改造对象」给 2 条具体改法，每条 ≤ 40 字，要能直接试。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "target",
+      "to": "v-s"
+    },
+    {
+      "from": "target",
+      "to": "v-c"
+    },
+    {
+      "from": "target",
+      "to": "v-a"
+    },
+    {
+      "from": "target",
+      "to": "v-m"
+    },
+    {
+      "from": "target",
+      "to": "v-p"
+    },
+    {
+      "from": "target",
+      "to": "v-e"
+    },
+    {
+      "from": "target",
+      "to": "v-r"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 170,
+    "zoom": 0.76
+  },
+  "agentPrompt": "七个动词各管一类改法，别互相串味；能落到具体动作的优先，纯概念的不要。"
+}

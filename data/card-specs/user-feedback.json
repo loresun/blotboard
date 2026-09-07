@@ -1,0 +1,134 @@
+{
+  "id": "user-feedback",
+  "version": 1,
+  "name": "用户反馈",
+  "category": "insight",
+  "icon": "bell",
+  "description": "一条原话反馈：谁说的、什么情绪、从哪来",
+  "tags": [
+    "用户",
+    "调研"
+  ],
+  "card": {
+    "w": 340,
+    "h": 250,
+    "color": "amber"
+  },
+  "display": {
+    "title": "topic",
+    "subtitle": "user",
+    "body": "content",
+    "badges": [
+      "channel",
+      "sentiment"
+    ],
+    "link": "url",
+    "time": "collectedAt"
+  },
+  "fields": [
+    {
+      "key": "topic",
+      "label": "主题",
+      "type": "text",
+      "max": 80,
+      "hint": "一句话概括这条反馈在说什么"
+    },
+    {
+      "key": "content",
+      "label": "原话",
+      "type": "longtext",
+      "required": true,
+      "max": 3000,
+      "hint": "尽量保留原话，别改写成结论"
+    },
+    {
+      "key": "user",
+      "label": "来自谁",
+      "type": "text",
+      "max": 60
+    },
+    {
+      "key": "channel",
+      "label": "渠道",
+      "type": "enum",
+      "required": true,
+      "options": [
+        {
+          "value": "xiaohongshu",
+          "label": "小红书"
+        },
+        {
+          "value": "wechat",
+          "label": "微信"
+        },
+        {
+          "value": "douyin",
+          "label": "抖音"
+        },
+        {
+          "value": "bilibili",
+          "label": "B站"
+        },
+        {
+          "value": "email",
+          "label": "邮件"
+        },
+        {
+          "value": "interview",
+          "label": "访谈"
+        },
+        {
+          "value": "other",
+          "label": "其他"
+        }
+      ]
+    },
+    {
+      "key": "sentiment",
+      "label": "情绪",
+      "type": "enum",
+      "options": [
+        {
+          "value": "positive",
+          "label": "正面"
+        },
+        {
+          "value": "neutral",
+          "label": "中性"
+        },
+        {
+          "value": "negative",
+          "label": "负面"
+        }
+      ]
+    },
+    {
+      "key": "tags",
+      "label": "标签",
+      "type": "tags",
+      "max": 8
+    },
+    {
+      "key": "url",
+      "label": "原始链接",
+      "type": "url"
+    },
+    {
+      "key": "collectedAt",
+      "label": "收集时间",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "topic": "课程节奏太快",
+    "content": "前面讲得挺好，到工具那段就跟不上了，一个个点开都来不及。",
+    "user": "小红书用户 @阿May",
+    "channel": "xiaohongshu",
+    "sentiment": "negative",
+    "tags": [
+      "课程",
+      "节奏"
+    ],
+    "collectedAt": "2026-08-23T14:00:00Z"
+  }
+}

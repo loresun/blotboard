@@ -1,0 +1,110 @@
+{
+  "id": "decision-log",
+  "version": 1,
+  "name": "决策记录",
+  "category": "record",
+  "icon": "scale",
+  "description": "一个决定：当时的处境、定了什么、代价是什么（ADR 风格）",
+  "tags": [
+    "决策",
+    "复盘"
+  ],
+  "card": {
+    "w": 340,
+    "h": 280,
+    "color": "violet"
+  },
+  "display": {
+    "title": "title",
+    "subtitle": "owner",
+    "body": "decision",
+    "badges": [
+      "status"
+    ],
+    "time": "decidedAt"
+  },
+  "fields": [
+    {
+      "key": "title",
+      "label": "决策",
+      "type": "text",
+      "required": true,
+      "max": 120
+    },
+    {
+      "key": "status",
+      "label": "状态",
+      "type": "enum",
+      "required": true,
+      "options": [
+        {
+          "value": "proposed",
+          "label": "待定"
+        },
+        {
+          "value": "accepted",
+          "label": "已定"
+        },
+        {
+          "value": "superseded",
+          "label": "已被取代"
+        },
+        {
+          "value": "rejected",
+          "label": "已否决"
+        }
+      ]
+    },
+    {
+      "key": "context",
+      "label": "背景",
+      "type": "longtext",
+      "max": 2000,
+      "hint": "当时面对的处境与约束"
+    },
+    {
+      "key": "decision",
+      "label": "定了什么",
+      "type": "longtext",
+      "required": true,
+      "max": 2000
+    },
+    {
+      "key": "consequences",
+      "label": "代价",
+      "type": "longtext",
+      "max": 2000,
+      "hint": "接受了哪些坏处——回头看最值钱的就是这一栏"
+    },
+    {
+      "key": "alternatives",
+      "label": "备选方案",
+      "type": "tags",
+      "max": 6
+    },
+    {
+      "key": "owner",
+      "label": "拍板人",
+      "type": "text",
+      "max": 40
+    },
+    {
+      "key": "decidedAt",
+      "label": "决策时间",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "title": "画板不做多人协作",
+    "status": "accepted",
+    "context": "一个人用为主，协作要引入光标同步与冲突合并，成本极高。",
+    "decision": "v1 明确不做协作；需要给人看就导出信封或 Markdown。",
+    "consequences": "两个人同时改同一块板会互相覆盖；靠「谁在用谁负责」规避。",
+    "alternatives": [
+      "CRDT",
+      "锁编辑"
+    ],
+    "owner": "张三",
+    "decidedAt": "2026-08-24T00:00:00Z"
+  }
+}

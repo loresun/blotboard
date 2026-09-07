@@ -1,0 +1,169 @@
+{
+  "id": "topic-idea",
+  "version": 1,
+  "name": "选题",
+  "category": "record",
+  "icon": "target",
+  "description": "一个还没做的题：给谁看、从哪个角度切、钩子是什么",
+  "tags": [
+    "选题",
+    "内容"
+  ],
+  "card": {
+    "w": 340,
+    "h": 260,
+    "color": "amber"
+  },
+  "display": {
+    "title": "topic",
+    "subtitle": "audience",
+    "body": "angle",
+    "badges": [
+      "platform",
+      "status",
+      "score"
+    ],
+    "time": "createdAt"
+  },
+  "fields": [
+    {
+      "key": "topic",
+      "label": "题目",
+      "type": "text",
+      "required": true,
+      "max": 120
+    },
+    {
+      "key": "platform",
+      "label": "平台",
+      "type": "enum",
+      "options": [
+        {
+          "value": "wechat",
+          "label": "公众号"
+        },
+        {
+          "value": "xhs",
+          "label": "小红书"
+        },
+        {
+          "value": "douyin",
+          "label": "抖音"
+        },
+        {
+          "value": "bilibili",
+          "label": "B站"
+        },
+        {
+          "value": "video",
+          "label": "视频号"
+        },
+        {
+          "value": "course",
+          "label": "课程"
+        },
+        {
+          "value": "other",
+          "label": "其他"
+        }
+      ]
+    },
+    {
+      "key": "audience",
+      "label": "给谁看",
+      "type": "text",
+      "max": 80,
+      "hint": "具体到人群与处境，「所有人」等于没写"
+    },
+    {
+      "key": "angle",
+      "label": "切入角度",
+      "type": "longtext",
+      "required": true,
+      "max": 2000,
+      "hint": "同一个题别人怎么写、我为什么不那么写"
+    },
+    {
+      "key": "hook",
+      "label": "钩子",
+      "type": "text",
+      "max": 200,
+      "hint": "一句话的标题方向"
+    },
+    {
+      "key": "evidence",
+      "label": "手上的料",
+      "type": "longtext",
+      "max": 1500,
+      "hint": "案例、数据、截图、亲身经历——没有料的题先别开工"
+    },
+    {
+      "key": "source",
+      "label": "线索来源",
+      "type": "text",
+      "max": 120
+    },
+    {
+      "key": "status",
+      "label": "状态",
+      "type": "enum",
+      "required": true,
+      "options": [
+        {
+          "value": "idea",
+          "label": "想法"
+        },
+        {
+          "value": "drafting",
+          "label": "在写"
+        },
+        {
+          "value": "scheduled",
+          "label": "待发"
+        },
+        {
+          "value": "published",
+          "label": "已发"
+        },
+        {
+          "value": "dropped",
+          "label": "废弃"
+        }
+      ]
+    },
+    {
+      "key": "score",
+      "label": "自评",
+      "type": "number",
+      "unit": "分",
+      "hint": "1-5，低于 3 分的题不值得占排期"
+    },
+    {
+      "key": "tags",
+      "label": "标签",
+      "type": "tags",
+      "max": 8
+    },
+    {
+      "key": "createdAt",
+      "label": "记于",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "topic": "我们把 AI 落地做砸的三次",
+    "platform": "wechat",
+    "audience": "正在推 AI 落地、发现工具没人用的中层",
+    "angle": "不讲方法论，只讲三次失败的具体现场与当时的错误判断。",
+    "hook": "工具发下去没人用，问题不在工具",
+    "evidence": "三个客户现场记录 + 课程返工前后的到课率对比",
+    "source": "客户复盘会",
+    "status": "idea",
+    "score": 4,
+    "tags": [
+      "AI落地",
+      "复盘"
+    ],
+    "createdAt": "2026-08-25T00:00:00Z"
+  }
+}

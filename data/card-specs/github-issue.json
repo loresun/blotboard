@@ -1,0 +1,122 @@
+{
+  "id": "github-issue",
+  "version": 1,
+  "name": "GitHub Issue / PR",
+  "category": "external",
+  "icon": "code",
+  "description": "一条 Issue 或 PR 的状态卡，摆在画板上跟着推进",
+  "tags": [
+    "GitHub",
+    "研发"
+  ],
+  "source": {
+    "app": "github",
+    "hint": "gh issue view --json / gh pr view --json"
+  },
+  "card": {
+    "w": 340,
+    "h": 240,
+    "color": "violet"
+  },
+  "display": {
+    "title": "title",
+    "subtitle": "repo",
+    "body": "body",
+    "badges": [
+      "state",
+      "number"
+    ],
+    "link": "url",
+    "time": "updatedAt"
+  },
+  "fields": [
+    {
+      "key": "repo",
+      "label": "仓库",
+      "type": "text",
+      "required": true,
+      "max": 100,
+      "hint": "owner/name"
+    },
+    {
+      "key": "number",
+      "label": "编号",
+      "type": "number",
+      "required": true
+    },
+    {
+      "key": "title",
+      "label": "标题",
+      "type": "text",
+      "required": true,
+      "max": 200
+    },
+    {
+      "key": "state",
+      "label": "状态",
+      "type": "enum",
+      "required": true,
+      "options": [
+        {
+          "value": "open",
+          "label": "开启"
+        },
+        {
+          "value": "draft",
+          "label": "草稿"
+        },
+        {
+          "value": "merged",
+          "label": "已合并"
+        },
+        {
+          "value": "closed",
+          "label": "已关闭"
+        }
+      ]
+    },
+    {
+      "key": "author",
+      "label": "作者",
+      "type": "text",
+      "max": 60
+    },
+    {
+      "key": "labels",
+      "label": "标签",
+      "type": "tags",
+      "max": 10
+    },
+    {
+      "key": "body",
+      "label": "正文摘要",
+      "type": "longtext",
+      "max": 3000
+    },
+    {
+      "key": "url",
+      "label": "链接",
+      "type": "url",
+      "required": true
+    },
+    {
+      "key": "updatedAt",
+      "label": "更新时间",
+      "type": "date"
+    }
+  ],
+  "example": {
+    "repo": "example/blotboard",
+    "number": 42,
+    "title": "卡片规格体系：外部卡片的 JSON 交换格式",
+    "state": "open",
+    "author": "octocat",
+    "labels": [
+      "feature",
+      "spec"
+    ],
+    "body": "用一份 JSON 规格描述一类外部卡片，装上就能用，开关可控。",
+    "url": "https://github.com/example/blotboard/issues/42",
+    "updatedAt": "2026-08-24T09:00:00Z"
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "id": "swot",
+  "name": "SWOT 分析",
+  "category": "mental",
+  "icon": "scale",
+  "description": "内外各两格摆清楚，再用「优势接机会、补短板挡威胁」逼出两条能做的策略。",
+  "tags": [
+    "决策",
+    "复盘",
+    "定位"
+  ],
+  "cards": [
+    {
+      "id": "subject",
+      "type": "text",
+      "title": "分析对象",
+      "x": -330,
+      "y": -370,
+      "w": 660,
+      "h": 120,
+      "color": "amber",
+      "content": "要分析的人 / 产品 / 业务写在这里（替换本句），并写清是跟谁比。"
+    },
+    {
+      "id": "s",
+      "type": "text",
+      "title": "S 优势（内部 · 有利）",
+      "x": -500,
+      "y": -200,
+      "w": 460,
+      "h": 190,
+      "color": "green",
+      "fillPrompt": "只写内部的、你能自己支配的优势，3 条，每条要能举出证据。≤ 90 字。"
+    },
+    {
+      "id": "w",
+      "type": "text",
+      "title": "W 劣势（内部 · 不利）",
+      "x": 40,
+      "y": -200,
+      "w": 460,
+      "h": 190,
+      "color": "rose",
+      "fillPrompt": "只写内部短板，3 条，写具体到「缺什么」而不是「不够强」。≤ 90 字。"
+    },
+    {
+      "id": "o",
+      "type": "text",
+      "title": "O 机会（外部 · 有利）",
+      "x": -500,
+      "y": 40,
+      "w": 460,
+      "h": 190,
+      "color": "blue",
+      "fillPrompt": "只写外部环境里的机会（趋势 / 政策 / 竞争空档），3 条。≤ 90 字。"
+    },
+    {
+      "id": "t",
+      "type": "text",
+      "title": "T 威胁（外部 · 不利）",
+      "x": 40,
+      "y": 40,
+      "w": 460,
+      "h": 190,
+      "color": "violet",
+      "fillPrompt": "只写外部威胁，3 条，注明大概什么时候会发生。≤ 90 字。"
+    },
+    {
+      "id": "strategy",
+      "type": "task",
+      "title": "两条策略：SO 进攻 / WT 防守",
+      "x": -230,
+      "y": 300,
+      "w": 460,
+      "h": 210,
+      "color": "blue",
+      "task": {
+        "goal": "用优势接机会写一条进攻策略，用补短板挡威胁写一条防守策略",
+        "priority": "high"
+      },
+      "fillPrompt": "给两条策略：SO（拿哪个优势去接哪个机会）、WT（补哪个短板去挡哪个威胁）。各 ≤ 60 字，都要点名对应的格子。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "subject",
+      "to": "s"
+    },
+    {
+      "from": "subject",
+      "to": "w"
+    },
+    {
+      "from": "subject",
+      "to": "o"
+    },
+    {
+      "from": "subject",
+      "to": "t"
+    },
+    {
+      "from": "s",
+      "to": "strategy",
+      "kind": "produces"
+    },
+    {
+      "from": "w",
+      "to": "strategy",
+      "kind": "produces"
+    },
+    {
+      "from": "o",
+      "to": "strategy",
+      "kind": "produces"
+    },
+    {
+      "from": "t",
+      "to": "strategy",
+      "kind": "produces"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 170,
+    "zoom": 0.68
+  },
+  "agentPrompt": "内部（SW）与外部（OT）不要混：自己能改的算内部，改不了只能应对的算外部。最后的策略必须点名它用到了哪几格。"
+}

@@ -1,0 +1,148 @@
+{
+  "id": "cross-domain-spark",
+  "name": "跨界灵感发射器",
+  "category": "topic",
+  "icon": "telescope",
+  "description": "老问题卡住时，去别的行业借一个成熟机制搬过来，比在本行业里硬想更快。",
+  "tags": [
+    "跨界",
+    "创意",
+    "破局"
+  ],
+  "cards": [
+    {
+      "id": "problem",
+      "type": "text",
+      "title": "本行业的老问题",
+      "x": -320,
+      "y": -380,
+      "w": 640,
+      "h": 130,
+      "color": "amber",
+      "content": "写一个你这行做了很久、一直没做好的老问题（替换本句）。"
+    },
+    {
+      "id": "wheel",
+      "type": "mindmap",
+      "title": "跨界领域转盘",
+      "x": -210,
+      "y": -200,
+      "w": 420,
+      "h": 300,
+      "color": "green",
+      "mindmap": {
+        "layout": "right",
+        "root": {
+          "text": "去哪儿借",
+          "children": [
+            {
+              "text": "自然界 / 生物"
+            },
+            {
+              "text": "游戏设计"
+            },
+            {
+              "text": "餐饮零售"
+            },
+            {
+              "text": "医疗急诊"
+            },
+            {
+              "text": "军事组织"
+            },
+            {
+              "text": "儿童教育"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "borrow-1",
+      "type": "text",
+      "title": "借法一",
+      "x": -620,
+      "y": 180,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "从转盘里挑一个领域，说清它解决类似问题的机制是什么，再把这个机制搬到上方的老问题上。≤ 80 字，开头点名领域。"
+    },
+    {
+      "id": "borrow-2",
+      "type": "text",
+      "title": "借法二",
+      "x": -160,
+      "y": 180,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "换一个跟借法一完全不同的领域，同样「机制 + 搬过来怎么用」。≤ 80 字。"
+    },
+    {
+      "id": "borrow-3",
+      "type": "text",
+      "title": "借法三",
+      "x": 300,
+      "y": 180,
+      "w": 300,
+      "h": 170,
+      "color": "slate",
+      "fillPrompt": "再换一个领域，挑最不像的那个。≤ 80 字。"
+    },
+    {
+      "id": "pick",
+      "type": "task",
+      "title": "最值得试的那个",
+      "x": -160,
+      "y": 420,
+      "w": 320,
+      "h": 200,
+      "color": "blue",
+      "task": {
+        "goal": "从三条借法里挑一条，写成本周就能试的动作",
+        "priority": "high"
+      },
+      "fillPrompt": "比较三条借法，挑一条最值得先试的，说清为什么，并给出本周可完成的第一步动作。≤ 100 字。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "problem",
+      "to": "wheel"
+    },
+    {
+      "from": "wheel",
+      "to": "borrow-1"
+    },
+    {
+      "from": "wheel",
+      "to": "borrow-2"
+    },
+    {
+      "from": "wheel",
+      "to": "borrow-3"
+    },
+    {
+      "from": "borrow-1",
+      "to": "pick",
+      "kind": "produces"
+    },
+    {
+      "from": "borrow-2",
+      "to": "pick",
+      "kind": "produces"
+    },
+    {
+      "from": "borrow-3",
+      "to": "pick",
+      "kind": "produces"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 170,
+    "zoom": 0.6
+  },
+  "agentPrompt": "三条借法必须来自三个差别很大的领域；每条都要先说清「那个领域的机制」，再说「搬过来怎么用」。"
+}

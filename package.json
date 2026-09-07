@@ -1,0 +1,105 @@
+{
+  "name": "blotboard",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "Blotboard · 泼墨画板 —— 人与任何 agent 共用的本地优先画板（Next.js + React Flow），数据自管，任务可接 ACP agent 或任意 HTTP Runner。",
+  "keywords": [
+    "whiteboard",
+    "canvas",
+    "agent",
+    "local-first",
+    "mcp",
+    "react-flow",
+    "nextjs",
+    "blotboard"
+  ],
+  "homepage": "https://github.com/loresun/blotboard#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loresun/blotboard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/loresun/blotboard/issues"
+  },
+  "author": "loresun",
+  "engines": {
+    "node": ">=20.9"
+  },
+  "bin": {
+    "blotboard": "bin/blotboard.mjs"
+  },
+  "scripts": {
+    "dev": "node server.mjs --dev",
+    "build": "node scripts/build.mjs",
+    "start": "node server.mjs",
+    "lint:repo": "node scripts/lint-repo.mjs",
+    "check": "node scripts/check.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node scripts/smoke-api.mjs",
+    "mock:integrations": "node scripts/mock-integrations.mjs",
+    "smoke:live": "node scripts/smoke-api.mjs --base http://127.0.0.1:8567",
+    "e2e": "playwright test",
+    "postinstall": "node scripts/sync-excalidraw-assets.mjs",
+    "test:unit": "node --test scripts/*.test.mjs",
+    "release:source": "node scripts/release-source.mjs"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^3.1.1",
+    "@excalidraw/excalidraw": "^0.18.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@xyflow/react": "^12.11.3",
+    "highlight.js": "^11.12.0",
+    "html-to-image": "^1.11.13",
+    "lucide-react": "^1.33.0",
+    "marked": "^16.4.2",
+    "mermaid": "^11.17.0",
+    "next": "^16.3.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "roughjs": "^4.6.6",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.0"
+  },
+  "overrides": {
+    "lodash-es": "^4.18.1",
+    "@excalidraw/excalidraw": {
+      "nanoid": "^3.3.18"
+    },
+    "@excalidraw/mermaid-to-excalidraw": {
+      "nanoid": "^5.1.16"
+    }
+  },
+  "files": [
+    "app/",
+    "bin/",
+    "cards/",
+    "components/",
+    "lib/",
+    "public/",
+    "!public/excalidraw-assets",
+    "scripts/",
+    "data/templates/",
+    "data/card-specs/",
+    "docs/",
+    "e2e/",
+    "server.mjs",
+    "next.config.mjs",
+    "tsconfig.json",
+    "playwright.config.ts",
+    "ecosystem.config.example.cjs",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "SECURITY.md",
+    "THIRD-PARTY-NOTICES.md",
+    "CHANGELOG.md"
+  ]
+}

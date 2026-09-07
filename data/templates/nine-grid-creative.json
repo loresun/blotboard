@@ -1,0 +1,168 @@
+{
+  "id": "nine-grid-creative",
+  "name": "九宫格创意",
+  "category": "topic",
+  "icon": "grid",
+  "description": "把一个主题拆成 9 个视角，每格逼出一条能动手的点子；支持拓展 / 优化 / 突破三种模式。",
+  "tags": [
+    "选题",
+    "发散",
+    "创意"
+  ],
+  "cards": [
+    {
+      "id": "center",
+      "type": "text",
+      "title": "中心主题",
+      "x": -320,
+      "y": -300,
+      "w": 600,
+      "h": 150,
+      "color": "amber",
+      "content": "把要发散的主题写在这里（替换本句）。\n模式三选一：① 拓展新机会 ② 优化现有做法 ③ 突破某个痛点——写在主题后面，九个格子会围着它转。"
+    },
+    {
+      "id": "cell-new",
+      "type": "text",
+      "title": "① 拓展新机会",
+      "x": -480,
+      "y": -100,
+      "w": 280,
+      "h": 150,
+      "color": "slate",
+      "fillPrompt": "站在「还没人做」的位置看这个主题，给 1 条具体可做的新机会。≤ 60 字，写成一句能直接动手的话，不要复述视角名。"
+    },
+    {
+      "id": "cell-user",
+      "type": "text",
+      "title": "② 用户视角",
+      "x": -160,
+      "y": -100,
+      "w": 280,
+      "h": 150,
+      "color": "slate",
+      "fillPrompt": "换成目标用户的处境看：他此刻最想要什么？给 1 条。≤ 60 字，写成一句能直接动手的话，不要复述视角名。"
+    },
+    {
+      "id": "cell-tech",
+      "type": "text",
+      "title": "③ 工具视角",
+      "x": 160,
+      "y": -100,
+      "w": 280,
+      "h": 150,
+      "color": "slate",
+      "fillPrompt": "用现有工具 / AI 能力能怎么做得更省力？给 1 条。≤ 60 字，写成一句能直接动手的话，不要复述视角名。"
+    },
+    {
+      "id": "cell-cost",
+      "type": "text",
+      "title": "④ 成本视角",
+      "x": -480,
+      "y": 80,
+      "w": 280,
+      "h": 150,
+      "color": "slate",
+      "fillPrompt": "把投入砍掉一半还能成立的做法是什么？给 1 条。≤ 60 字，写成一句能直接动手的话，不要复述视角名。"
+    },
+    {
+      "id": "cell-risk",
+      "type": "text",
+      "title": "⑤ 风险视角",
+      "x": -160,
+      "y": 80,
+      "w": 280,
+      "h": 150,
+      "color": "slate",
+      "fillPrompt": "最可能翻车的地方在哪，怎么提前挡掉？给 1 条。≤ 60 字，写成一句能直接动手的话，不要复述视角名。"
+    },
+    {
+      "id": "cell-ops",
+      "type": "text",
+      "title": "⑥ 运营视角",
+      "x": 160,
+      "y": 80,
+      "w": 280,
+      "h": 150,
+      "color": "slate",
+      "fillPrompt": "做完之后怎么让它持续跑起来（复用 / 自动化）？给 1 条。≤ 60 字，写成一句能直接动手的话，不要复述视角名。"
+    },
+    {
+      "id": "cell-content",
+      "type": "text",
+      "title": "⑦ 内容视角",
+      "x": -480,
+      "y": 260,
+      "w": 280,
+      "h": 150,
+      "color": "slate",
+      "fillPrompt": "这件事能沉淀出什么可对外讲的内容？给 1 条。≤ 60 字，写成一句能直接动手的话，不要复述视角名。"
+    },
+    {
+      "id": "cell-channel",
+      "type": "text",
+      "title": "⑧ 渠道视角",
+      "x": -160,
+      "y": 260,
+      "w": 280,
+      "h": 150,
+      "color": "slate",
+      "fillPrompt": "谁最该看到它，从哪个渠道最快够到？给 1 条。≤ 60 字，写成一句能直接动手的话，不要复述视角名。"
+    },
+    {
+      "id": "cell-long",
+      "type": "text",
+      "title": "⑨ 长期视角",
+      "x": 160,
+      "y": 260,
+      "w": 280,
+      "h": 150,
+      "color": "slate",
+      "fillPrompt": "一年后回头看，什么才算真的做成了？给 1 条。≤ 60 字，写成一句能直接动手的话，不要复述视角名。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "center",
+      "to": "cell-new"
+    },
+    {
+      "from": "center",
+      "to": "cell-user"
+    },
+    {
+      "from": "center",
+      "to": "cell-tech"
+    },
+    {
+      "from": "center",
+      "to": "cell-cost"
+    },
+    {
+      "from": "center",
+      "to": "cell-risk"
+    },
+    {
+      "from": "center",
+      "to": "cell-ops"
+    },
+    {
+      "from": "center",
+      "to": "cell-content"
+    },
+    {
+      "from": "center",
+      "to": "cell-channel"
+    },
+    {
+      "from": "center",
+      "to": "cell-long"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 170,
+    "zoom": 0.85
+  },
+  "agentPrompt": "中心卡的正文是主题与模式，先读它再填九格。九格之间不要重复同一个点子，也不要写成口号。"
+}
