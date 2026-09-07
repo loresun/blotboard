@@ -4,9 +4,9 @@ English | [中文](README.md)
 
 **Blotboard — a local-first whiteboard that humans and any agent share.**
 
-> ℹ️ **v1.0.0 — first public release.** Refactored out of a private project; the code and its
-> acceptance suite (239 e2e specs) are in place, but it has few public users yet. From this release on
-> it follows [semantic versioning](https://semver.org): breaking changes go into a major version.
+> ℹ️ **v1.0.1.** Refactored out of a private project (1.0.0 was the first public release); the code and its
+> acceptance suite (239 e2e specs) are in place, but it has few public users yet. It follows
+> [semantic versioning](https://semver.org): breaking changes go into a major version.
 > Before you run it in production, run `npm run check` yourself and read [SECURITY.md](SECURITY.md) on network boundaries.
 
 Spread your thinking out as cards, drag them around, wire them together, right-click to annotate — that is the half meant for people. The other half is for agents:
@@ -137,12 +137,13 @@ AIDOCS_URL=http://127.0.0.1:8899 BOOK_LIBRARY_URL=http://127.0.0.1:8899 npm run 
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `BLOTBOARD_PORT` / `BLOTBOARD_HOST` | `8567` / `127.0.0.1` | Listen address |
-| `BLOTBOARD_PUBLIC_URL` | `http://127.0.0.1:<port>` | Outward-facing address (the base written into prompts / deep links for agents) |
+| `BLOTBOARD_PUBLIC_URL` | `http://127.0.0.1:<port>` | Outward-facing address (the base written into prompts / deep links for agents). Required for cross-machine access / working deep links — otherwise prompts and deep links point at `127.0.0.1` |
 | `BLOTBOARD_ROOT` | `process.cwd()` | Project root (Templates and built-in specs follow it) |
 | `BLOTBOARD_DATA_DIR` | `<root>/data` | User data directory |
 | `BLOTBOARD_INTERNAL_TOKEN` | self-managed `<data>/token` | Write token (first of the three sources) |
 | `BLOTBOARD_GOAL_AGENT_SETTINGS` | — | Point at Goal Agent's settings.json when sharing its token |
 | `BLOTBOARD_RUNNER_TOKEN` | the board's internal token | Token for the http task backend |
+| `BLOTBOARD_ACP_STDERR` | redacted summary only | How ACP agent stderr is kept: `full` also writes the raw text to `<data>/runs/<runId>.stderr.log` (0600); the raw text never enters the transcript |
 | `BLOTBOARD_HTML_ALLOW` | `@private` | Domain allowlist for Web embed cards (comma-separated; `@private` = localhost/private network/Tailscale, `@none` = off) |
 | `BLOTBOARD_PORT_TRIES` | `10` | How many ports to walk forward when the one you asked for is taken (8567 → 8568 → …) |
 | `BLOTBOARD_PORT_STRICT` | — | Set `1` to stop walking: a taken port becomes an error and exit (for tests, so assertions don't land on nothing) |

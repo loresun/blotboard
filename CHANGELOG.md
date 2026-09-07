@@ -3,6 +3,77 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.1] - 2026-09-07
+
+**主题：把「派给本机 agent」从能跑变成好用，并且不再挑任务后端。**
+
+起因是一轮针对 ACP 派单的实测：真的 Claude Code 拿到 prompt 之后，在文件系统里翻了 150 秒
+找回写用的 token 也没开工。顺着这条线查下去，问题不止一处。
+
+### ACP agent 拿得到回写凭证了（原来它只能靠猜）
+
+- prompt 里写着「token 取环境变量 `BLOTBOARD_INTERNAL_TOKEN`，或读数据目录下的 token 文件」，
+  但 spawn 的 env 里**根本没有这个变量**（默认部署走自管 token 文件），而数据目录的绝对路径
+  又刻意不写进 prompt（它会随免鉴权的 `GET /api/issues/:id` 吐出去）——三头堵死。
+  现在 spawn 时注入 `BLOTBOARD_INTERNAL_TOKEN` 与 `BLOTBOARD_API_BASE`，
+  **只走 env 这一条不经过任何响应体的通道**：token 不进 prompt、不进 `issues.json`、不进任何 API 响应。
+- agent 起不来时，transcript 原来只有一句「agent 进程意外退出（code 1）」，真实原因看不到。
+  现在 stderr 进环形缓冲（200 行），run 到终态取最后 ≤10 行**脱敏后**落一条 transcript
+  （本机路径换占位、疑似密钥整段抹掉），failed 的备注末尾也带上最后一行原因。
+  `BLOTBOARD_ACP_STDERR=full` 时另把原文全量写到 `<data>/runs/<runId>.stderr.log`（0600）。
+- agent 缺 API key 时回的 `-32000` 原来显示成「协议错误码 -32000」，没人知道该去哪配。
+  现在直说：「该 agent 需要认证：请在任务台 → Runner 设置为它配置 API key」。
+
+### Runner 设置带上了内置预设与连通性检测
+
+手抄一行命令行赌它能跑，是这块原来的全部体验。两个断层让这件事比看上去难：**装了 CLI 不等于
+它说 ACP**（Claude Code / Codex / pi 都要另跑一个适配器进程），**说了 ACP 不等于能开会话**
+（没登录会在握手里回 `-32000`）。
+
+- 内置五条预设（Claude Code / Codex / Kimi CLI / opencode / pi），每条带首选命令 + npx 兜底；
+- 新增 `POST /api/runner-settings/probe`：用**派单时的同一套握手**真跑一次
+  （spawn → `initialize` → `session/new` → 立刻杀），**不发 prompt**，不花 token、不动文件。
+  失败时说清卡在哪一步：`spawn` = 命令不在 PATH 里、`initialize` = 起来了但不说 ACP、
+  `session` = 说 ACP 但开不了会话；
+- 面板上的「检测并添加」**探通了才落盘，落的是探通的那条命令**——首选二进制没装就落 npx 兜底那条，
+  所以注册表里存的一定是这台机器上真能跑的形态，而不是文档里的理想形态；
+- 适配器一律用 `@latest` 而不钉版本：钉旧版会以「握手超时」这种最难查的形态失败。
+
+### 本机 ACP 派单不再挑任务后端
+
+`agentId` 原来只有 local 后端消费，goal-agent / http 后端下被直接丢弃——结果是**已经接了外部
+Runner 的部署反而用不上「一键派给本机 Claude Code」**，最需要这个能力的人用不了。现在它是一条
+与 `tasks.backend` 正交的执行通道（`lib/integrations/acp-lane.ts`）：
+
+- **Issue 真源不动**。派单前先从对端取回**此刻**的标题正文（不是转 Issue 时那份旧快照），
+  本地只开一条带 `external` 标记的**执行台账**挂 run / transcript / 权限请求。台账不进 Issue 列表、
+  不参与 Issue 同步——不造第二本账；同一条远程 Issue 的多次本机执行记在同一条台账上；
+- **run id 前缀即路由**：本机 run 一律 `r_` 开头，任务状态查询命中就地服务，否则打对端。
+  外部 Runner 的执行与本机执行各自记账、互不干扰；
+- **不带 `agentId` 时远程链路零变化**：请求体逐字节照旧发给对端；
+- `/api/issues/*` 那道「非 local 后端一律 501」的整体闸拆成三道——它原来会把本机 run 的回写口
+  一起挡死，agent 一开工就 501。现在 Issue 真源类操作仍 501，单条 Issue 只放行本机执行台账，
+  run 级操作（回写 / transcript / 权限确认）只要本机查得到就放行。
+
+任务台（聚合镜像形态）的呈现取舍：本机 run **不另开列表**——它不是「另一类任务」，而是同一条
+任务的另一个执行者。所以是同一行打一枚「本机 ACP」标记、左栏多一个横切镜头「本机执行」、
+详情里并列一块「本机执行」区（agent 下拉 / 派单 / 流式 transcript / 权限确认 / 中止）。
+最后那块恰好是外部 Runner 那条路给不了的，也正是两条路值得分开呈现的全部理由。
+
+**来源卡的状态现在跟着本机 run 走**（completed → 已完成，failed / aborted → 已建 Issue）：
+这条 run 的生命周期归画板所有，就有义务让卡片别一直停在「执行中」。外部 Runner 那条路画板只是
+镜像，卡片上存的状态不归它推动，维持原样。
+
+### 顺带修掉的几处
+
+- **脱敏在 macOS 上会漏**：`/var` 是 `/private/var` 的软链，子进程报的是 realpath，
+  只按原样路径替换会留下 `/private<工作目录>` 这样的残片。现在两种写法一起换。
+- **ACP 握手超时从 30s 提到 60s**：实测 codex-acp 冷启动到 `session/new` 要 22 秒，
+  原来只剩 8 秒余量，机器一忙就会以「握手超时」假失败（npx 首次下载适配器还要再叠十几秒）。
+- 脱敏规则从 `lib/acp/manager.ts` 抽成共用模块，检测与 stderr 摘要用同一份，免得一边补了另一边漏。
+- 落地页里指向真实仓库的 GitHub 链接被 `lint:repo` 当成作者身份泄漏——那和 `package.json` 的
+  `repository` 是同一个地址、同一个理由，按检查自己的指引加进 `PRIVATE_ALLOW` 并写明原因。
+
 ## [1.0.0] - 2026-09-07
 
 **首个公开发布版本。** 此前的开发在私有仓库里进行，公开仓库从这一版的完整源码起步、

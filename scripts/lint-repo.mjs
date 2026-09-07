@@ -243,6 +243,12 @@ const PRIVATE_ALLOW = [
     reason: "安全上报链接必须指向本仓库的 Security advisories 页，路径里就带着账号名",
   },
   {
+    file: "landing/index.html",
+    ids: ["identity"],
+    reason:
+      "落地页的 GitHub 链接与 clone 命令必须指向真实仓库，owner 段就是账号名——与 package.json 的 repository 同一个地址、同一个理由：换成中性写法等于给访客一条打不开的链接",
+  },
+  {
     file: "scripts/lint-repo.mjs",
     ids: ["private-port", "private-host", "ticket-id", "secret-literal", "home-path"],
     reason:

@@ -16,11 +16,15 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
-import { ACP_WORKSPACE_DIR } from "../config";
+import path from "node:path";
+import { normalizeTaskField } from "../board-schema";
+import { ACP_WORKSPACE_DIR, PUBLIC_URL, RUNS_DIR, tryReadInternalToken } from "../config";
 import { badRequest, conflict, notFound } from "../http";
 import * as issues from "../issue-store";
 import type { AcpAgentConfig, PermissionMode } from "../runner-settings";
+import { get as getBoard, mutateBoard } from "../storage";
 import { JsonRpcPeer, RpcRemoteError } from "./jsonrpc";
+import { collectSecrets, redactDiagnostic } from "./redact";
 import { appendTranscript } from "./transcript";
 
 interface PendingPermission {
@@ -41,6 +45,22 @@ interface AcpSession {
   /** 终态已定（谁先到谁定）：后续的 exit / stopReason 只做清理不再改状态 */
   done: boolean;
   timers: NodeJS.Timeout[];
+  /** agent 的 stderr 环形缓冲（见 STDERR_MAX_LINES），终态时脱敏取尾部 */
+  stderr: StderrBuffer;
+}
+
+/** agent 的 stderr 缓冲 + 摘要脱敏所需的全部上下文（收尾点在三个地方，得能各自独立调） */
+interface StderrBuffer {
+  lines: string[];
+  /** 末尾没换行的半截：等下一片拼上再算完整一行 */
+  partial: string;
+  cwd: string;
+  /** 疑似密钥串（spawn env 里够长的值 + 内部 token）：摘要里出现就整段抹掉 */
+  secrets: string[];
+  /** 摘要只落一次：三个终态收尾点谁先到谁写，其余的不再重复 */
+  flushed: boolean;
+  /** BLOTBOARD_ACP_STDERR=full 时的全量原文落点；null = 不落盘 */
+  fullFile: string | null;
 }
 
 interface AcpGlobalState {
@@ -56,10 +76,34 @@ function globalState(): AcpGlobalState {
   return g.__blotboardAcpState as AcpGlobalState;
 }
 
-const INIT_TIMEOUT_MS = 30_000;
+/**
+ * initialize / session/new 的超时。60s 不是拍脑袋：2026-09-07 实测五个 agent 的
+ * 冷启动到 session/new 分别是 kimi 0.7s / claude-agent-acp 5.8s / pi-acp 7.4s /
+ * opencode 14.6s / codex-acp 22.2s——codex 要现拉模型列表，原来的 30s 只剩 8s 余量，
+ * 机器一忙就会以「握手超时」的形态假失败。npx 首次下载适配器还要再叠十几秒。
+ */
+const INIT_TIMEOUT_MS = 60_000;
 /** cancel 通知发出后给 agent 的体面退出窗口，之后 SIGTERM（设计决策 §3） */
 const CANCEL_GRACE_MS = 5_000;
 const TERM_TO_KILL_MS = 3_000;
+
+/* ── agent 的 stderr：内存环形缓冲 + 终态摘要 ─────────── */
+
+/**
+ * 缓冲上限（行）。stderr 是排障的最后线索（agent 起不来时 transcript 往往只有一句
+ * 「进程意外退出」，真实原因只有它自己知道），但不能照单全收：跑飞的 agent 能按
+ * MB/s 往这写，内存里留个环形缓冲，量级就是封顶的。
+ */
+const STDERR_MAX_LINES = 200;
+/** 终态摘要取最后几行：够定位「为什么挂」，又不至于把 transcript 回放刷成日志 */
+const STDERR_TAIL_LINES = 10;
+/** 单行截断：一行 dump 十 MB 的那种输出，在缓冲里也只占一格 */
+const STDERR_MAX_LINE_CHARS = 1000;
+/**
+ * 进程退出后再等 stderr 收干的宽限。'exit' 只代表进程没了，最后一段输出可能还在
+ * 管道里没被读走（要等 'close'）——不等这一拍，崩溃原因就会被当成空缓冲丢掉。
+ */
+const STDERR_SETTLE_MS = 500;
 
 /* ── 启动兜底：内存表空但状态还在跑的 run 一律标中止 ── */
 
@@ -127,12 +171,23 @@ export function startAcpRun(input: StartAcpRunInput): issues.LocalIssueRun {
     /* 已存在或建不出来：spawn 会用自己的报错说清楚 */
   }
 
+  // 回写凭证走 env 注入，不走 prompt：prompt 会随免鉴权的 `GET /api/issues/:id` 吐出去，
+  // token 只能从这条不经过任何响应体的通道给到 agent（解析不到就不注入，绝不臆造一个空值占位）。
+  const internalToken = tryReadInternalToken();
+  // 注入值排在前面、注册表 env 排在后面：agent 自己配的同名键显式覆盖注入值
+  const childEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...(internalToken ? { BLOTBOARD_INTERNAL_TOKEN: internalToken } : {}),
+    BLOTBOARD_API_BASE: PUBLIC_URL,
+    ...input.agent.env,
+  };
+
   let child: ChildProcess;
   try {
     child = spawn(input.agent.command, input.agent.args, {
       cwd,
       // agent 的 env 叠在画板进程 env 之上：PATH 等基础环境保留，密钥类由注册表补
-      env: { ...process.env, ...input.agent.env },
+      env: childEnv,
       stdio: ["pipe", "pipe", "pipe"],
     });
   } catch {
@@ -152,13 +207,25 @@ export function startAcpRun(input: StartAcpRunInput): issues.LocalIssueRun {
     pending: null,
     done: false,
     timers: [],
+    stderr: {
+      lines: [],
+      partial: "",
+      cwd,
+      secrets: collectSecrets(childEnv, internalToken),
+      flushed: false,
+      // 全量原文落盘是显式开关（BLOTBOARD_ACP_STDERR=full）：0600，跟 token 文件同一待遇，
+      // 且不进 transcript——transcript 只进脱敏摘要
+      fullFile:
+        process.env.BLOTBOARD_ACP_STDERR === "full" ? path.join(RUNS_DIR, `${run.id}.stderr.log`) : null,
+    },
   };
   state.sessions.set(run.id, session);
   ensureExitHook();
 
-  // Drain stderr so the child cannot block on a full pipe. Never publish raw diagnostics:
-  // CLI errors routinely echo environment values, command arguments and local paths.
-  child.stderr?.resume();
+  // 收 stderr 有两件事：不能让子进程因为管道写满而卡死；也不能把原文直接发布出去——
+  // CLI 报错里常带着环境变量值、命令参数和本机路径，只留环形缓冲，终态时脱敏取尾部
+  child.stderr?.setEncoding("utf8");
+  child.stderr?.on("data", (chunk: string) => recordStderr(session, chunk));
 
   // spawn 层错误（命令不存在等）不会走 exit：单独接住
   child.on("error", () => {
@@ -170,7 +237,13 @@ export function startAcpRun(input: StartAcpRunInput): issues.LocalIssueRun {
     session.peer.close("agent 进程已退出");
     for (const timer of session.timers) clearTimeout(timer);
     if (!session.done) {
-      finishRun(session, "failed", `agent 进程意外退出（${signal || `code ${code}`}），请检查 agent 的本机运行配置`);
+      // 'exit' 先于最后一段 stderr 是常态：等流收干（有上限）再定终态，
+      // 否则「为什么挂」的那一行会被当成空缓冲丢掉
+      settleStderrThen(session, () => {
+        state.sessions.delete(session.runId);
+        finishRun(session, "failed", `agent 进程意外退出（${signal || `code ${code}`}），请检查 agent 的本机运行配置`);
+      });
+      return;
     }
     state.sessions.delete(session.runId);
   });
@@ -222,8 +295,14 @@ async function driveSession(session: AcpSession, promptText: string): Promise<vo
     handleStopReason(session, String(result?.stopReason || "end_turn"));
   } catch (err) {
     if (!session.done) {
-      const detail = err instanceof RpcRemoteError && Number.isFinite(err.code) ? `（协议错误码 ${err.code}）` : "";
-      finishRun(session, "failed", `agent 会话失败${detail}，请检查 agent 的 ACP 支持与本机运行配置`);
+      // -32000 是各家 agent 约定俗成的 auth_required：报成「协议错误码」没人知道该去配 key，
+      // 这一条单独给人话（其余错误码维持原样）
+      if (err instanceof RpcRemoteError && err.code === -32000) {
+        finishRun(session, "failed", "该 agent 需要认证：请在任务台 → Runner 设置为它配置 API key（env），或先在本机完成该 agent 的登录后重试");
+      } else {
+        const detail = err instanceof RpcRemoteError && Number.isFinite(err.code) ? `（协议错误码 ${err.code}）` : "";
+        finishRun(session, "failed", `agent 会话失败${detail}，请检查 agent 的 ACP 支持与本机运行配置`);
+      }
     }
     cleanupChild(session);
   }
@@ -307,6 +386,63 @@ export function resolvePermission(issueId: string, runId: string, rawOptionId: u
   return issues.findRun(runId)!.run;
 }
 
+/* ── stderr：收流 / 脱敏 / 终态摘要 ───────────────── */
+
+function recordStderr(session: AcpSession, chunk: string): void {
+  const buffer = session.stderr;
+  if (buffer.fullFile) {
+    try {
+      fs.appendFileSync(buffer.fullFile, chunk, { mode: 0o600 });
+    } catch {
+      /* 全量日志是诊断增强：写不进去只损失原文，不能反过来打断执行 */
+    }
+  }
+  const lines = (buffer.partial + chunk).split("\n");
+  buffer.partial = (lines.pop() ?? "").slice(0, STDERR_MAX_LINE_CHARS);
+  for (const line of lines) {
+    buffer.lines.push(line.slice(0, STDERR_MAX_LINE_CHARS));
+    if (buffer.lines.length > STDERR_MAX_LINES) buffer.lines.shift();
+  }
+}
+
+/**
+ * 终态收尾的 stderr 摘要：脱敏后取最后 ≤10 行 append **一条** transcript（`{type:"stderr"}`），
+ * failed 再把最后一行并进 note（「为什么挂」要一眼可见）。
+ *
+ * 终态收尾点有三处——finishRun / 外部回写收尾（handleExternalRunStatus）/ 中止（cancelSession），
+ * 全走这里，flushed 标记保证不重复；缓冲是空的（spawn 就失败、agent 一个字没说）就什么都不落。
+ * 返回值是**应该落账的 note**：只在 failed 且真有 stderr 时才追加，agent 自己报的账不动。
+ */
+function flushStderr(session: AcpSession, status: "completed" | "failed" | "aborted", note: string): string {
+  const buffer = session.stderr;
+  if (buffer.flushed) return note;
+  buffer.flushed = true;
+  const tail = buffer.lines.slice(-STDERR_TAIL_LINES);
+  if (!tail.length) return note;
+  const text = tail.map((line) => redactDiagnostic(line, { cwd: buffer.cwd, secrets: buffer.secrets })).join("\n");
+  appendTranscript(session.runId, { type: "stderr", text });
+  if (status === "failed" && note) return `${note}：${text.split("\n").pop()}`;
+  return note;
+}
+
+/** 进程退出后等 stderr 收干再收尾：'exit' 只代表进程没了，'close' 才代表流也读完了 */
+function settleStderrThen(session: AcpSession, done: () => void): void {
+  const stderr = session.child.stderr;
+  if (!stderr || stderr.readableEnded || stderr.destroyed) {
+    done();
+    return;
+  }
+  let settled = false;
+  const settle = () => {
+    if (settled) return;
+    settled = true;
+    done();
+  };
+  stderr.once("close", settle);
+  const timer = setTimeout(settle, STDERR_SETTLE_MS);
+  timer.unref?.();
+}
+
 /* ── 中止与收尾 ───────────────────────────────────── */
 
 /**
@@ -324,6 +460,8 @@ export function handleExternalRunStatus(runId: string, status: issues.LocalRunSt
   if (status === "completed" || status === "failed") {
     session.done = true;
     resolvePendingAsCancelled(session);
+    // 状态是 agent 自己报的账，note 不动；stderr 摘要照落（这是终态收尾点之一，不能漏）
+    flushStderr(session, status, "");
     appendTranscript(session.runId, { type: "status", status: "external", detail: `run 被外部回写为 ${status}，会话收尾` });
     cleanupChild(session);
   }
@@ -335,6 +473,8 @@ function cancelSession(session: AcpSession): void {
     return;
   }
   session.done = true;
+  // 中止也是终态：缓冲里有什么就落什么（此刻 agent 通常还没开始说话，多数为空）
+  flushStderr(session, "aborted", "");
   appendTranscript(session.runId, { type: "status", status: "cancel", detail: "已发 session/cancel，等 agent 体面退出" });
   resolvePendingAsCancelled(session);
   if (session.sessionId) session.peer.notify("session/cancel", { sessionId: session.sessionId });
@@ -364,10 +504,16 @@ function resolvePendingAsCancelled(session: AcpSession): void {
 function finishRun(session: AcpSession, status: "completed" | "failed" | "aborted", note: string): void {
   session.done = true;
   resolvePendingAsCancelled(session);
-  appendTranscript(session.runId, { type: "status", status, detail: note });
-  safePatchRun(session, { status, note });
+  // stderr 摘要在终态 status 之前落：回放时先看到 agent 说了什么，再看到我们的结论
+  const finalNote = flushStderr(session, status, note);
+  appendTranscript(session.runId, { type: "status", status, detail: finalNote });
+  safePatchRun(session, { status, note: finalNote });
 }
 
+/**
+ * spawn 同步抛错时的收尾：子进程根本没起来，没有 stderr 可收，也就没有摘要可落——
+ * 这里只管把 run 标成 failed，别让「发起失败」这件事悬着。
+ */
 function finishWithoutSession(issueId: string, runId: string, status: "failed", note: string): void {
   appendTranscript(runId, { type: "status", status, detail: note });
   try {
@@ -383,6 +529,49 @@ function safePatchRun(session: AcpSession, patch: { status?: issues.LocalRunStat
   } catch (err) {
     // Issue 可能被人删了：执行照常收尾，只是没账可记
     console.error(`[acp] run 状态落盘失败（${session.runId}）：${String((err as Error)?.message || err)}`);
+  }
+  if (patch.status) syncSourceCard(session.issueId, session.runId, patch.status);
+}
+
+/** run 状态 → 任务卡状态。失败 / 中止回「已建 Issue」：有 Issue、但没在跑 */
+const CARD_STATUS_OF: Partial<Record<issues.LocalRunStatus, "issued" | "running" | "done">> = {
+  running: "running",
+  waiting: "running",
+  completed: "done",
+  failed: "issued",
+  aborted: "issued",
+};
+
+/**
+ * 把来源任务卡的状态跟着本机 run 走。
+ *
+ * 为什么只有本机 run 配这么做：**画板拥有这条 run 的生命周期**，知道它什么时候真的结束了，
+ * 那就有义务让卡片别一直停在「执行中」。外部 Runner 那条路画板只是镜像——它的 task 状态
+ * 实时查得到（详情 / 任务抽屉里显示），但卡片上存的那个字段不归画板推动，这里也就不去动它。
+ *
+ * 只在「卡片当前展示的就是这一条 run」时才改（taskId 对得上），
+ * 免得把之后另派的那一轮的状态覆盖掉。
+ */
+export function syncSourceCard(issueId: string, runId: string, status: issues.LocalRunStatus): void {
+  const next = CARD_STATUS_OF[status];
+  if (!next) return;
+  try {
+    const issue = issues.getIssue(issueId);
+    if (!issue?.boardId || !issue.cardId) return;
+    const board = getBoard(issue.boardId);
+    const card = board?.cards?.find((item) => item.id === issue.cardId);
+    if (!card || card.task?.taskId !== runId || card.task?.status === next) return;
+    mutateBoard(issue.boardId, (target) => {
+      const found = target.cards.find((entry) => entry.id === issue.cardId);
+      if (found && found.task?.taskId === runId) {
+        found.task = normalizeTaskField({ ...found.task, status: next });
+        found.updatedAt = Date.now();
+        target.updatedAt = Date.now();
+      }
+      return null;
+    });
+  } catch {
+    /* 卡片联动是锦上添花：板被删了 / 写不进去都不该反过来影响 run 的记账 */
   }
 }
 

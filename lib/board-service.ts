@@ -1208,7 +1208,8 @@ export async function launchCardTask(
   if (!existing) throw notFound("卡片不存在");
   if (existing.type !== "task" || !existing.task?.issueId) throw badRequest("请先把卡片转为 Issue 再发起任务");
   const mode: "implement" | "analyze" = rawMode === "analyze" ? "analyze" : "implement";
-  // agentId 走 options 通道而不是 payload：只有 local 后端消费，远程请求体保持原形状
+  // agentId 走 options 通道而不是 payload：带它就是「派给本机 ACP agent」（任何后端下都成立，
+  // 见 lib/integrations/acp-lane.ts），不带它的远程请求体保持原形状
   const agentId = typeof rawAgentId === "string" && rawAgentId ? rawAgentId : null;
   /*
    * 发起任务前把这张卡的最新内容推过去 —— 这是「执行的一定是画板上的现状」最后一道闸。
@@ -1227,7 +1228,8 @@ export async function launchCardTask(
       // 卡片自带指令随任务一起下发；Runner 不认这个字段也无害（会被忽略）
       ...(prompt ? { extraInstructions: prompt } : {}),
     },
-    agentId ? { agentId } : undefined,
+    // origin 只在本机 ACP 那条路上用（给 prompt 里的画板深链），永远不进远程请求体
+    agentId ? { agentId, origin: { boardId: board.id, cardId: existing.id } } : undefined,
   );
   const sessionId = result?.sessionId || null;
   const card = store.mutateBoard(board.id, (target) => {

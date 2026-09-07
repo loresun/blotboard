@@ -1,3 +1,4 @@
+import { ACP_PRESETS } from "@/lib/acp/presets";
 import { assertCanWrite } from "@/lib/auth";
 import { TASK_BACKEND } from "@/lib/features";
 import { ok, readJson, route } from "@/lib/http";
@@ -16,7 +17,8 @@ export const dynamic = "force-dynamic";
 // Apply the same authenticated channel as PATCH; the UI already sends x-board-web.
 export const GET = route(async (request: Request) => {
   assertCanWrite(request);
-  return ok({ backend: TASK_BACKEND, settings: toPublic(loadRunnerSettings()) });
+  // presets 一并下发：面板据此渲染「一键添加」（内容是静态表，见 lib/acp/presets.ts）
+  return ok({ backend: TASK_BACKEND, settings: toPublic(loadRunnerSettings()), presets: ACP_PRESETS });
 });
 
 /**

@@ -63,6 +63,23 @@ export interface LocalIssueRun {
   permissionRequest?: RunPermissionRequest | null;
 }
 
+/**
+ * 「这条记录不是 Issue 真源，只是本机执行某条**远程** Issue 的台账」。
+ *
+ * goal-agent / http 后端下派本机 ACP agent 时才会有：Issue 的真源仍在对端，
+ * 画板这边需要一个地方挂 run / transcript / 权限请求，就复用同一套存储开一条带这个
+ * 标记的记录。带标记的记录**不进任务台的 Issue 列表**（listIssues 之上有 listOwnIssues
+ * 专门筛掉它们）——不然就成了第二本 Issue 账，那正是设计上要避免的。
+ */
+export interface ExternalIssueRef {
+  /** 当时的任务后端种类（goal-agent / http）——换后端后老记录一眼可辨 */
+  backend: string;
+  /** 对端的 Issue id */
+  issueId: string;
+  /** 对端的人类编号（identifier），拿不到就是 null */
+  number: string | null;
+}
+
 export interface LocalIssue {
   id: string;
   /** 人念得出口的编号（L-1、L-2…），对应 goal-agent 的 identifier */
@@ -78,6 +95,8 @@ export interface LocalIssue {
   updatedAt: number;
   runs: LocalIssueRun[];
   log: IssueLogEntry[];
+  /** 有值 = 这是「本机执行远程 Issue」的台账，不是 Issue 真源（见 ExternalIssueRef） */
+  external?: ExternalIssueRef | null;
 }
 
 interface IssueFile {
@@ -168,6 +187,19 @@ export function listIssues(): LocalIssue[] {
   return loadFile().issues;
 }
 
+/** 画板自己的 Issue（筛掉「本机执行远程 Issue」的台账）——任务台列表用这个，不用 listIssues */
+export function listOwnIssues(): LocalIssue[] {
+  return loadFile().issues.filter((issue) => !issue.external);
+}
+
+/** 按（后端, 对端 issueId）反查本机执行台账 */
+export function findExternalIssue(backend: string, externalId: string): LocalIssue | null {
+  return (
+    loadFile().issues.find((issue) => issue.external?.backend === backend && issue.external?.issueId === externalId) ||
+    null
+  );
+}
+
 export function getIssue(id: string): LocalIssue | null {
   return loadFile().issues.find((issue) => issue.id === id) || null;
 }
@@ -198,6 +230,8 @@ export interface CreateIssueInput {
   labels?: unknown;
   boardId?: string | null;
   cardId?: string | null;
+  /** 见 ExternalIssueRef：给了就是「本机执行远程 Issue」的台账，不是画板自己的 Issue */
+  external?: ExternalIssueRef | null;
 }
 
 export function createIssue(input: CreateIssueInput): LocalIssue {
@@ -221,8 +255,47 @@ export function createIssue(input: CreateIssueInput): LocalIssue {
     updatedAt: now,
     runs: [],
     log: [{ at: now, event: "created" }],
+    ...(input.external ? { external: input.external } : {}),
   };
   data.issues.push(issue);
+  persist(data);
+  return issue;
+}
+
+/**
+ * 拿到「本机执行这条远程 Issue」的台账：有就复用（同一条远程 Issue 的多次本机执行
+ * 记在一起，历史连得上），没有就按对端当前的标题正文新建一条。
+ *
+ * 刻意每次都刷新标题正文：远程 Issue 改过之后，下一轮派单要用新内容，
+ * 而不是拿第一次抓下来的旧快照去跑（「执行的一定是现状」与卡片派单同一条口径）。
+ */
+export function ensureExternalIssue(input: {
+  external: ExternalIssueRef;
+  title: unknown;
+  description: unknown;
+  boardId?: string | null;
+  cardId?: string | null;
+}): LocalIssue {
+  const existing = findExternalIssue(input.external.backend, input.external.issueId);
+  if (!existing) {
+    return createIssue({
+      title: input.title,
+      description: input.description,
+      boardId: input.boardId || null,
+      cardId: input.cardId || null,
+      external: input.external,
+    });
+  }
+  const data = writableFile();
+  const issue = data.issues.find((item) => item.id === existing.id)!;
+  const title = cleanText(input.title, 300);
+  const description = cleanText(input.description, 40_000);
+  if (title) issue.title = title;
+  issue.description = description;
+  issue.external = input.external;
+  if (input.boardId) issue.boardId = input.boardId;
+  if (input.cardId) issue.cardId = input.cardId;
+  issue.updatedAt = Date.now();
   persist(data);
   return issue;
 }

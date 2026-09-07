@@ -4,8 +4,8 @@
 
 **Blotboard — a local-first whiteboard that humans and any agent share.**
 
-> ℹ️ **v1.0.0 · 首个公开版本**：自私有项目重构而来，代码与验收（239 条 e2e）都已成型，
-> 但公开使用者还少。从这一版起按[语义化版本](https://semver.org/lang/zh-CN/)承诺：破坏性改动进大版本。
+> ℹ️ **v1.0.1**：自私有项目重构而来（1.0.0 是首个公开版本），代码与验收（239 条 e2e）都已成型，
+> 但公开使用者还少。按[语义化版本](https://semver.org/lang/zh-CN/)承诺：破坏性改动进大版本。
 > 上生产前请自己先跑一遍 `npm run check`，并按 [SECURITY.md](SECURITY.md) 确认网络边界。
 
 把想法摊开成卡片、拖拽连线、右键批注——这是给人的那半边。另半边给 agent：
@@ -138,12 +138,13 @@ AIDOCS_URL=http://127.0.0.1:8899 BOOK_LIBRARY_URL=http://127.0.0.1:8899 npm run 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
 | `BLOTBOARD_PORT` / `BLOTBOARD_HOST` | `8567` / `127.0.0.1` | 监听地址 |
-| `BLOTBOARD_PUBLIC_URL` | `http://127.0.0.1:<port>` | 对外地址（prompt / 深链里写给 agent 的 base） |
+| `BLOTBOARD_PUBLIC_URL` | `http://127.0.0.1:<port>` | 对外地址（prompt / 深链里写给 agent 的 base）。跨机访问 / 要让浏览器深链可用时必须配，否则写进 prompt 的回写地址与深链都是 `127.0.0.1` |
 | `BLOTBOARD_ROOT` | `process.cwd()` | 项目根（模板与内置规格随它走） |
 | `BLOTBOARD_DATA_DIR` | `<root>/data` | 用户数据目录 |
 | `BLOTBOARD_INTERNAL_TOKEN` | 自管 `<data>/token` | 写操作 token（三级来源之首） |
 | `BLOTBOARD_GOAL_AGENT_SETTINGS` | — | 与 Goal Agent 共用 token 时指向它的 settings.json |
 | `BLOTBOARD_RUNNER_TOKEN` | 画板内部 token | http 任务后端的 token |
+| `BLOTBOARD_ACP_STDERR` | 只落脱敏摘要 | ACP agent 的 stderr 存法：设 `full` = 另把原文全量写到 `<data>/runs/<runId>.stderr.log`（0600），原文不进 transcript |
 | `BLOTBOARD_HTML_ALLOW` | `@private` | 网页嵌入卡的域白名单（逗号分隔；`@private` = 本机/私网/Tailscale，`@none` = 关闭） |
 | `BLOTBOARD_PORT_TRIES` | `10` | 想要的端口被占时最多往后顺延几个（8567 → 8568 → …） |
 | `BLOTBOARD_PORT_STRICT` | — | 设 `1` 关掉顺延：端口被占就报错退出（测试用，免得断言打在空处） |

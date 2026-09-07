@@ -3828,13 +3828,16 @@ test.describe("第十二轮：任务台 Runner 设置（ACP agent 注册表）",
   /** local 任务后端的第二个实例（playwright.config 起的；表单只在这个形态可编辑） */
   const LOCAL_BASE = `http://127.0.0.1:${Number(process.env.E2E_LOCAL_PORT || 8443)}`;
 
-  test("goal-agent 形态：设置区显示「由外部 Runner 接管」，不给编辑表单", async ({ page }) => {
+  test("goal-agent 形态：说明派单归外部 Runner，但注册表与预设检测照常可用", async ({ page }) => {
     await page.goto("/tasks");
     await page.getByRole("button", { name: "Runner 设置" }).click();
     await expect(page.locator(".tk-runner-takeover")).toContainText("由外部 Runner 接管");
-    // 接管形态下不渲染任何编辑入口：没有「添加 agent」，也没有权限档位按钮
-    await expect(page.getByRole("button", { name: "添加 agent" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /自动允许/ })).toHaveCount(0);
+    // 派单归外部 Runner，但「先把本机 agent 配好、验通」这件事在任何后端下都该能做：
+    // 五条预设都在，注册与档位入口也在（本机 ACP 派单与后端解耦之前，这里只差最后一脚）
+    await expect(page.locator(".tk-preset-row")).toHaveCount(5);
+    await expect(page.locator(".tk-preset-row", { hasText: "Claude Code" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "添加 agent" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: /自动允许/ })).toHaveCount(1);
   });
 
   test("local 形态：添加 agent → 设为默认 → 档位切换并持久 → 删除（全程不 spawn 进程）", async ({ page }) => {
@@ -3847,8 +3850,8 @@ test.describe("第十二轮：任务台 Runner 设置（ACP agent 注册表）",
     await page.getByRole("button", { name: "添加 agent" }).click();
     const form = page.locator(".tk-agent-form");
     await form.locator('input[placeholder="Claude Code"]').fill("E2E Mock Agent");
-    await form.locator('input[placeholder="claude-code-acp"]').fill("node");
-    await form.locator('input[placeholder="--acp"]').fill("scripts/mock-acp-agent.mjs --mode auto-finish");
+    await form.locator('input[placeholder="claude-agent-acp"]').fill("node");
+    await form.locator('input[placeholder="acp"]').fill("scripts/mock-acp-agent.mjs --mode auto-finish");
     await form.getByRole("button", { name: "保存" }).click();
 
     const row = page.locator(".tk-agent-row", { hasText: "E2E Mock Agent" });
@@ -3870,6 +3873,8 @@ test.describe("第十二轮：任务台 Runner 设置（ACP agent 注册表）",
     await page.locator(".tk-agent-row", { hasText: "E2E Mock Agent" }).getByRole("button", { name: "删除" }).click();
     await expect(page.locator(".tk-agent-row")).toHaveCount(0);
     await expect(panel).toContainText("还没注册 agent");
+    // 预设卡片不是注册项：清空注册表之后它们照样在（下一次「检测并添加」还得靠它们）
+    await expect(page.locator(".tk-preset-row")).toHaveCount(5);
   });
 });
 

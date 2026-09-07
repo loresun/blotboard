@@ -143,9 +143,9 @@ curl -X PATCH http://127.0.0.1:8567/api/issues/i_xxx/runs/r_yyy \
 
 ---
 
-## 4. ACP 派单（local 后端的第二种 launch 方式）
+## 4. ACP 派单（任何后端下都成立的第二种 launch 方式）
 
-除了「生成 prompt 供复制」，local 后端还能**真拉起本机的 coding agent**：
+除了「生成 prompt 供复制」，画板还能**真拉起本机的 coding agent**：
 launch 时带 `agentId`，画板就 spawn 注册表里那个 agent 的子进程，走
 [ACP（Agent Client Protocol）](https://agentclientprotocol.com)（JSON-RPC 2.0 over stdio）
 跑这一个 run——流式进展与权限确认都回到任务台。不带 `agentId` 时行为与 §2 完全一致。
@@ -169,6 +169,12 @@ Issue 进「等我处理」镜头；`auto` = 自动选 allow 类选项并在 tra
 **cwd 很重要**：留空时 agent spawn 在 `<data>/acp-workspace/`（自动建目录）——
 想让 agent 改你的某个仓库，就把该 agent 的 `cwd` 配到那个仓库。
 
+**画板会往子进程注入两个环境变量**：`BLOTBOARD_API_BASE`（= `BLOTBOARD_PUBLIC_URL`，
+与 prompt 里的回写地址同一个 base）和 `BLOTBOARD_INTERNAL_TOKEN`（画板当前生效的内部
+token，三级来源见 README 环境变量表；解析不到就不注入）。agent 不用翻文件系统找凭证，
+拿这两个值按 §3 的回写契约直接回报状态即可。token 只走 env 这条通道——
+prompt、API 响应、`issues.json` 里都不会出现它的值。`agents` 里配了同名键时以注册表为准。
+
 > ⚠️ **注册表是高信任输入**。这里登记的命令由画板 `spawn` 起来，且
 > **子进程继承画板进程的全部环境变量**（`{ ...process.env, ...agent.env }`）——
 > 画板的内部 token、你 shell 里导出的任何 API key，agent 全看得见。
@@ -177,24 +183,58 @@ Issue 进「等我处理」镜头；`auto` = 自动选 allow 类选项并在 tra
 > 或调 `PATCH /api/runner-settings`，谁就能在你的机器上以你的身份执行任意命令。
 > 反过来说，把画板的写接口暴露到不可信网络之前，先想清楚这一条。
 
-示例配置（`gemini --acp` 与 npm 包 `@zed-industries/claude-code-acp` 均已核实存在，
-参数细节以各 agent 自己的文档为准；mock 条目的相对路径要求 cwd 配成画板仓库根）：
+示例配置（mock 条目的相对路径要求 cwd 配成画板仓库根）：
 
 ```jsonc
 { "agents": [
-  { "id": "claude",  "name": "Claude Code", "command": "npx",
-    "args": ["-y", "@zed-industries/claude-code-acp"], "cwd": "/path/to/your/repo" },
-  { "id": "gemini",  "name": "Gemini CLI",  "command": "gemini", "args": ["--acp"] },
-  { "id": "mock",    "name": "Mock（测试）", "command": "node",
+  { "id": "claude-code", "name": "Claude Code", "command": "npx",
+    "args": ["-y", "@agentclientprotocol/claude-agent-acp@latest"], "cwd": "/path/to/your/repo" },
+  { "id": "kimi",   "name": "Kimi CLI", "command": "kimi", "args": ["acp"] },
+  { "id": "mock",   "name": "Mock（测试）", "command": "node",
     "args": ["scripts/mock-acp-agent.mjs", "--mode", "auto-finish"] }
 ] }
 ```
+
+### 4.1.1 内置预设与连通性检测
+
+手抄命令行容易错在两处：**装了 CLI 不等于它说 ACP**（Claude Code / Codex / pi 都要跑一个
+适配器进程），**说了 ACP 不等于能开会话**（没登录会在握手里回 `-32000`）。所以任务台
+「Runner 设置」里带了一份预设清单和一个检测口：
+
+```
+POST /api/runner-settings/probe     { presetKey } | { agentId } | { command, args?, cwd? }
+GET  /api/runner-settings           响应里的 presets 字段就是这份清单
+```
+
+检测做的事是**用派单时的同一套握手真跑一次**：spawn → `initialize`（protocolVersion 1，
+clientCapabilities 与真派单逐字一致）→ `session/new` → 立刻杀进程。**不发 `session/prompt`**，
+所以不花 token、不动任何文件。返回 `{ ok, stage, command, args, ms, protocolVersion,
+authMethods, needsAuth, error, stderrTail }`——`stage` 说明卡在哪一步（`spawn` =
+命令不在 PATH 里、`initialize` = 起来了但不说 ACP、`session` = 说 ACP 但开不了会话）。
+`error` 与 `stderrTail` 与终态 stderr 摘要走同一套脱敏（路径换占位、够长的 env 值当密钥抹掉），
+且**检测通道不注入 `BLOTBOARD_INTERNAL_TOKEN`**——握手用不上它，最小权限。
+
+内置预设（`lib/acp/presets.ts`，命令均按上述握手实测过）：
+
+| 预设 | 首选命令 | npx 兜底 |
+| --- | --- | --- |
+| Claude Code | `claude-agent-acp` | `npx -y @agentclientprotocol/claude-agent-acp@latest` |
+| Codex | `codex-acp` | `npx -y @zed-industries/codex-acp@latest` |
+| Kimi CLI | `kimi acp` | —（自带 acp 子命令） |
+| opencode | `opencode acp` | `npx -y opencode-ai@latest acp` |
+| pi | `pi-acp` | `npx -y pi-acp@latest` |
+
+面板上的「检测并添加」会先探首选命令、不通再探兜底，**探通了才落盘，落的是探通的那条**——
+所以注册表里存的一定是这台机器上真能跑的形态，而不是文档里的理想形态。
+适配器版本一律用 `@latest` 而不钉死：钉旧版会以「握手超时」这种最难查的形态失败。
+
+> 注册表与检测在**任何**任务后端下都可用；带 `agentId` 的派单也是（见 §4.3）。
 
 ### 4.2 发起、进展、权限、中止
 
 ```
 POST /api/issues/{issueId}/launch                       { "mode": "implement|analyze", "agentId": "claude" }
-POST /api/boards/{bid}/cards/{cid}/launch               同上（卡片入口；远程后端下 agentId 被丢弃）
+POST /api/boards/{bid}/cards/{cid}/launch               同上（卡片入口；远程后端下也认 agentId，见 §4.3）
 GET  /api/issues/{id}/runs/{runId}/transcript?offset=N  流式 transcript 增量读（免鉴权只读）
 POST /api/issues/{id}/runs/{runId}/permission           { "optionId": "..." }（ask 档兑现权限请求，写口鉴权）
 PATCH /api/issues/{id}/runs/{runId}                     { "status": "aborted" } 触发中止链路
@@ -208,7 +248,48 @@ PATCH /api/issues/{id}/runs/{runId}                     { "status": "aborted" } 
   与 HTTP 回写通道**双轨并存**，agent 仍可回写补充结构化状态；
 - 画板作为 ACP 客户端**能力最小化**：不提供 fs / terminal（initialize 里声明，硬发回 -32601）；
 - **服务重启兜底**：重启后内存里的会话都没了，启动扫描把「状态还在跑但会话丢失」的 run
-  一律标 `aborted` 并在日志与 transcript 里注明「服务重启，会话丢失」。
+  一律标 `aborted` 并在日志与 transcript 里注明「服务重启，会话丢失」；
+- **stderr 摘要**：agent 的 stderr 只在内存里留一个环形缓冲（200 行），run 到终态时取最后
+  ≤10 行**脱敏后**（本机路径换占位、疑似密钥整段抹掉）落一条 `type: "stderr"` 的 transcript，
+  failed 的 run 备注末尾也带上最后一行；`BLOTBOARD_ACP_STDERR=full` 时另把原文全量写到
+  `<data>/runs/<runId>.stderr.log`（0600），原文不进 transcript。
+
+### 4.3 远程后端下的本机 ACP（执行通道与任务后端解耦）
+
+`agentId` 不再是 local 后端的专利：**goal-agent / http 后端下带 `agentId` 的 launch 一样跑在本机**
+（实现见 `lib/integrations/acp-lane.ts`）。这条路解决的是「已经接了外部 Runner 的部署反而用不上
+一键派给本机 Claude Code」——最需要这个能力的人原来用不了。
+
+它怎么与远程真源共处：
+
+- **Issue 真源不动**。派单前先 `GET /api/issues/:id` 从对端把**此刻**的标题正文取回来
+  （不是转 Issue 时那份旧快照），画板本地只开一条带 `external: { backend, issueId, number }`
+  标记的**执行台账**来挂 run / transcript / 权限请求。台账不进任务台的 Issue 列表，
+  也不参与 Issue 同步——不造第二本账；
+- **同一条远程 Issue 的多次本机执行记在同一条台账上**，历史连得起来；
+- **run id 前缀即路由**：本机 run 一律 `r_` 开头，`GET /api/tasks/:taskId`（及
+  `/api/runner/tasks/:taskId` 代理）命中就地服务，否则打对端。外部 Runner 的执行与本机执行
+  各自记账、互不干扰；
+- **不带 `agentId` 时远程链路零变化**：请求体逐字节照旧发给对端（这是硬性验收项，smoke 有断言）。
+
+端点闸门也跟着拆成三道（`lib/issue-service.ts`）——原来是「非 local 后端下 `/api/issues/*` 整体 501」，
+那会把本机 run 的回写口一起挡死，agent 一开工就 501：
+
+| 闸 | 覆盖 | 非 local 后端下 |
+| --- | --- | --- |
+| `assertLocalIssues` | Issue 列表 / 建 Issue | 501 指路（真源在对端） |
+| `assertLocalIssue` | 单条 Issue 读写 | 只放行本机执行台账（external 标记的） |
+| `assertLocalRun` | run 回写 / transcript / 权限确认 | 本机查得到这个 run 就放行 |
+
+任务台（聚合镜像形态）的呈现：本机 run **不另开列表**，而是同一行打标记 + 详情里多一块——
+
+- 列表行行尾一枚「本机 ACP」标记；
+- 左栏多一个横切镜头「本机执行」（按执行者筛，不是任务状态的第五档），带计数；
+- 详情页「本机执行」区块：agent 下拉 +「派给本机 agent」，已有本机 run 时直接嵌流式 transcript、
+  权限确认与「中止」。**这块是外部 Runner 那条路给不了的**，也正是两条路值得分开呈现的原因；
+- **来源卡的状态跟着本机 run 走**（completed → `done`，failed / aborted → `issued`）：
+  这条 run 的生命周期归画板所有，就有义务让卡片别一直停在「执行中」。外部 Runner 那条路
+  画板只是镜像，卡片上存的状态不归它推动，也就不去动。
 
 ---
 

@@ -86,6 +86,20 @@ const runner = http.createServer(async (req, res) => {
     lastIssueDescription = String(body.description || "");
     return send(201, { ok: true, issue: { id: `issue-${issueCreateCount}`, identifier: `ISSUE-${100 + issueCreateCount}`, title: body.title } });
   }
+  const getIssueMatch = /^\/api\/issues\/(issue-\d+)$/.exec(req.url);
+  if (getIssueMatch && req.method === "GET") {
+    // 本机 ACP 派单前会现取一次：执行的一定是对端此刻的正文，不是旧快照
+    return send(200, {
+      ok: true,
+      issue: {
+        id: getIssueMatch[1],
+        identifier: `ISSUE-${getIssueMatch[1]}`,
+        title: `远程 Issue ${getIssueMatch[1]}`,
+        description: "对端此刻的正文（本机 ACP 派单要用这一份）",
+        status: "pending",
+      },
+    });
+  }
   const patchMatch = /^\/api\/issues\/(issue-\d+)$/.exec(req.url);
   if (patchMatch && req.method === "PATCH") {
     const body = await readBody();
@@ -1058,13 +1072,101 @@ async function main() {
   );
   await request("PATCH", `/api/boards/${boardId}`, { body: { settings: { issueSync: "auto" } } });
 
+  /* 6.6 本机 ACP 执行通道（goal-agent 后端下同样成立，lib/integrations/acp-lane.ts）：
+        带 agentId 的 launch **不打对端**，而是在本机 spawn 一个 ACP agent 跑一轮；
+        Issue 真源仍归对端，本机只开一条带 external 标记的执行台账挂 run。 */
+  step("acp-remote-lane");
+  {
+    const MOCK_AGENT = path.join(PROJECT_ROOT, "scripts", "mock-acp-agent.mjs");
+    const waitFor = async (check, what, timeoutMs = 20_000) => {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        if (await check()) return;
+        await new Promise((resolve) => setTimeout(resolve, 120));
+      }
+      throw new Error(`等待超时：${what}`);
+    };
+
+    // 注册表在 goal-agent 后端下照常可读写（派单能不能走到它是另一回事）
+    const rs = await request("PATCH", "/api/runner-settings", {
+      body: {
+        agents: [{ id: "mock-echo", name: "Mock 回写闭环", command: process.execPath, args: [MOCK_AGENT, "--mode", "echo-env"] }],
+        defaultAgentId: "mock-echo",
+      },
+    });
+    assert.equal(rs.status, 200, JSON.stringify(rs.data));
+    assert.equal(rs.data.backend, "goal-agent");
+
+    const laneCard = await request("POST", `/api/boards/${boardId}/cards`, {
+      body: { type: "task", title: "派给本机跑", task: { goal: "验证本机 ACP 通道" } },
+    });
+    const laneCardId = laneCard.data.card.id;
+    const laneIssue = await request("POST", `/api/boards/${boardId}/cards/${laneCardId}/issue`);
+    assert.equal(laneIssue.status, 201);
+    const remoteIssueId = laneIssue.data.issue.id;
+
+    const launchesBefore = launchCalls.length;
+    const laneLaunch = await request("POST", `/api/boards/${boardId}/cards/${laneCardId}/launch`, {
+      body: { mode: "implement", agentId: "mock-echo" },
+    });
+    assert.equal(laneLaunch.status, 201, JSON.stringify(laneLaunch.data));
+    const laneRunId = laneLaunch.data.task.sessionId;
+    assert.match(laneRunId, /^r_/, `本机 run 的 id 该是 r_ 开头：${laneRunId}`);
+    assert.equal(laneLaunch.data.card.task.status, "running", "spawn 即开工");
+    assert.equal(launchCalls.length, launchesBefore, "带 agentId 的 launch 不该打到对端 Runner");
+
+    // 轮询走 /api/runner/tasks 代理：前缀命中本机 run 就地服务，不打对端
+    await waitFor(async () => {
+      const probe = await request("GET", `/api/runner/tasks/${laneRunId}`);
+      return probe.data?.task?.status === "completed";
+    }, "本机 ACP run 完成");
+    const laneTask = await request("GET", `/api/runner/tasks/${laneRunId}`);
+    assert.equal(laneTask.data.task.kind, "acp");
+    assert.equal(laneTask.data.task.agentName, "Mock 回写闭环");
+    // note 是 agent 用**注入的 env** 回写进来的那句：这条通过 = 远程后端下回写口没被闸门挡住
+    assert.ok(laneTask.data.task.summary.includes("echo-env 闭环"), laneTask.data.task.summary);
+
+    // 来源卡跟着走：run 完了就别再停在「执行中」（本机 run 归画板所有，见 manager syncSourceCard）
+    await waitFor(async () => {
+      const b = await request("GET", `/api/boards/${boardId}`);
+      return b.data.board.cards.find((item) => item.id === laneCardId)?.task?.status === "done";
+    }, "来源卡状态跟着本机 run 走");
+
+    // transcript 也要能读（原来这条路在非 local 后端下一律 501）
+    const ledgerId = laneTask.data.task.issueId;
+    const laneTr = await request("GET", `/api/issues/${ledgerId}/runs/${laneRunId}/transcript`);
+    assert.equal(laneTr.status, 200, JSON.stringify(laneTr.data));
+    assert.ok(
+      laneTr.data.entries.some((entry) => entry.type === "update" && String(entry.update?.content?.text || "").includes("echo-env")),
+      "本机 run 的对话块要能读到",
+    );
+
+    // 派单用的是对端**此刻**的正文，不是转 Issue 时那份
+    const ledger = await request("GET", `/api/issues/${ledgerId}`);
+    assert.equal(ledger.status, 200, "执行台账在远程后端下也要读得到（agent 拿到的 prompt 指向它）");
+    assert.ok(ledger.data.issue.description.includes("对端此刻的正文"), ledger.data.issue.description);
+    assert.equal(ledger.data.issue.external.backend, "goal-agent");
+    assert.equal(ledger.data.issue.external.issueId, remoteIssueId);
+
+    // 闸门只放行 run 级与执行台账：Issue 真源类操作在远程后端下仍然 501
+    assert.equal((await request("GET", "/api/issues")).status, 501, "Issue 列表的真源在对端");
+    assert.equal((await request("GET", `/api/issues/${remoteIssueId}`)).status, 501, "远程 Issue 不该被本机假装服务");
+
+    // 不带 agentId 的 launch 一如既往打到对端（远程链路零变化）
+    const remoteLaunch = await request("POST", `/api/boards/${boardId}/cards/${laneCardId}/launch`, { body: { mode: "analyze" } });
+    assert.equal(remoteLaunch.status, 201);
+    assert.equal(launchCalls.length, launchesBefore + 1, "不带 agentId 时才该打对端");
+    assert.equal(launchCalls[launchCalls.length - 1].id, remoteIssueId);
+  }
+
   /* 7. 跨画板任务聚合 */
   step("tasks-view");
   const second = await request("POST", "/api/boards", { body: { name: "第二块板" } });
   const secondId = second.data.board.id;
   await request("POST", `/api/boards/${secondId}/cards`, { body: { type: "task", title: "另一件事" } });
   const tasks = await request("GET", "/api/boards/tasks");
-  assert.equal(tasks.data.total, 4);
+  // 4 张老的 + acp-remote-lane 那步新建的「派给本机跑」
+  assert.equal(tasks.data.total, 5);
   assert.ok(tasks.data.tasks.every((item) => item.boardName));
 
   /* 7.5 跨画板全文搜索 */
@@ -4027,6 +4129,9 @@ async function main() {
         AIDOCS_URL: "",
         BOOK_LIBRARY_URL: "",
         BLOTBOARD_GOAL_AGENT_SETTINGS: "",
+        // token 三级来源的前两级也显式清空：ACP 用例断言的是「默认自管 <data>/token」形态，
+        // 外层 shell 若导出了 BLOTBOARD_INTERNAL_TOKEN，会把这个前提悄悄换掉
+        BLOTBOARD_INTERNAL_TOKEN: "",
         // local 后端的自动同步也要断言，防抖压短（与主实例同一理由）
         BLOTBOARD_ISSUE_SYNC_DEBOUNCE_MS: "120",
         // 这个实例顺便覆盖「把快照功能整个关掉」的形态（keep=0）
@@ -4312,17 +4417,21 @@ async function main() {
     });
     assert.equal(rsNoAuth.status, 403, "runner-settings 写口应鉴权");
 
-    // 注册三个 mock agent（同一脚本三种模式）；env 值绝不回显
+    // 注册六个 mock agent（同一脚本多种模式）；env 值绝不回显
     rs = await bare("PATCH", "/api/runner-settings", {
       agents: [
         { id: "mock-auto", name: "Mock 自动跑完", command: process.execPath, args: [MOCK_AGENT, "--mode", "auto-finish"], env: { MOCK_SECRET: "s3cret-value" } },
         { id: "mock-perm", name: "Mock 要授权", command: process.execPath, args: [MOCK_AGENT, "--mode", "need-permission"] },
         { id: "mock-hang", name: "Mock 挂住", command: process.execPath, args: [MOCK_AGENT, "--mode", "hang"] },
+        { id: "mock-echo", name: "Mock 回写闭环", command: process.execPath, args: [MOCK_AGENT, "--mode", "echo-env"] },
+        // mock-crash 会把注入的内部 token 原样打进 stderr：正好用来验证画板的摘要真把它脱敏了
+        { id: "mock-crash", name: "Mock 起不来", command: process.execPath, args: [MOCK_AGENT, "--mode", "crash"], env: { MOCK_LONG_ENV_VALUE: "m0ck-env-value-0123" } },
+        { id: "mock-auth", name: "Mock 缺 key", command: process.execPath, args: [MOCK_AGENT, "--mode", "auth-required"] },
       ],
       defaultAgentId: "mock-auto",
     });
     assert.equal(rs.status, 200, JSON.stringify(rs.data));
-    assert.equal(rs.data.settings.agents.length, 3);
+    assert.equal(rs.data.settings.agents.length, 6);
     assert.deepEqual(rs.data.settings.agents[0].envKeys, ["MOCK_SECRET"], "env 只回 key 名");
     assert.ok(!JSON.stringify(rs.data).includes("s3cret-value"), "env 值绝不回显给浏览器");
     assert.equal(rs.data.settings.defaultAgentId, "mock-auto");
@@ -4338,6 +4447,60 @@ async function main() {
     const badAgent = await bare("PATCH", "/api/runner-settings", { agents: [{ name: "没命令" }] });
     assert.equal(badAgent.status, 400);
     assert.ok(badAgent.data.error.includes("command"), badAgent.data.error);
+
+    /* ACP 连通性检测（任务台「Runner 设置」的「检测 / 检测并添加」）：
+          真握手一次就收尾（不发 prompt），所以拿 mock agent 当被测对象最合适——
+          能连通的、拉不起来的、以及「stderr 里带路径与 token 的」三种都覆盖到。 */
+    step("acp-probe");
+    {
+      const withPresets = await bare("GET", "/api/runner-settings");
+      const presetKeys = (withPresets.data.presets || []).map((preset) => preset.key);
+      assert.deepEqual(
+        presetKeys.slice().sort(),
+        ["claude-code", "codex", "kimi", "opencode", "pi"],
+        `预设清单应是五个内置 agent：${presetKeys}`,
+      );
+
+      // 会 spawn 真进程，鉴权口径必须与派单同级
+      const probeNoAuth = await fetch(`${bareBase}/api/runner-settings/probe`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agentId: "mock-auto" }),
+      });
+      assert.equal(probeNoAuth.status, 403, "probe 是写口，必须鉴权");
+
+      // 已注册的 agent：走完 initialize + session/new
+      const okProbe = await bare("POST", "/api/runner-settings/probe", { agentId: "mock-auto" });
+      assert.equal(okProbe.status, 200, JSON.stringify(okProbe.data));
+      assert.equal(okProbe.data.result.ok, true, JSON.stringify(okProbe.data.result));
+      assert.equal(okProbe.data.result.stage, "done");
+      assert.equal(okProbe.data.result.protocolVersion, 1);
+
+      // 草稿形态 + 命令不在 PATH 里：卡在 spawn，报「命令不在 PATH 里？」而不是干瞪眼
+      const missing = await bare("POST", "/api/runner-settings/probe", { command: "blotboard-no-such-acp-agent", args: [] });
+      assert.equal(missing.data.result.ok, false);
+      assert.equal(missing.data.result.stage, "spawn");
+      assert.ok(missing.data.result.error.includes("PATH"), missing.data.result.error);
+
+      // 未知预设 / 空请求：400 而不是静默探个寂寞
+      assert.equal((await bare("POST", "/api/runner-settings/probe", { presetKey: "nope" })).status, 400);
+      assert.equal((await bare("POST", "/api/runner-settings/probe", {})).status, 400);
+
+      /* mock-crash 往 stderr 打「绝对路径 + 注册表里的密钥」：检测结果必须脱敏后才回给浏览器。
+         注意检测通道**不注入** BLOTBOARD_INTERNAL_TOKEN（握手用不上它，最小权限），
+         所以这里验的是注册表 env 里那把长密钥，以及路径换成占位后不留 /private 残片
+         （macOS 的 /var 是 /private/var 的软链，子进程报的是 realpath）。 */
+      const crashProbe = await bare("POST", "/api/runner-settings/probe", { agentId: "mock-crash" });
+      assert.equal(crashProbe.data.result.ok, false);
+      const crashBody = JSON.stringify(crashProbe.data);
+      assert.ok(!crashBody.includes(bareToken), "检测结果不能带 token 值");
+      assert.ok(!crashBody.includes(bareData), "检测结果不能带本机绝对路径");
+      assert.ok(!crashBody.includes("m0ck-env-value"), "检测结果不能带注册表 env 里的值");
+      const crashTail = crashProbe.data.result.stderrTail;
+      assert.ok(crashTail.includes("<疑似密钥>"), crashTail);
+      assert.ok(crashTail.includes("<工作目录>"), crashTail);
+      assert.ok(!crashTail.includes("/private"), `路径占位不该留下 /private 残片：${crashTail}`);
+    }
 
     /* auto-finish：card launch 带 agentId → 真 spawn → 流式 transcript → 自动完成 */
     step("acp-launch-auto");
@@ -4381,6 +4544,70 @@ async function main() {
     const acpTask = await bare("GET", `/api/runner/tasks/${acpRunId}`);
     assert.equal(acpTask.data.task.status, "completed");
     assert.equal(acpTask.data.task.kind, "acp");
+
+    /* spawn 注入回写凭证 / stderr 摘要 / -32000 人话引导（Phase 1 三项的回归）：
+          echo-env 用画板注入的 env 真发一次 PATCH（闭环）；crash 把带路径与疑似密钥的
+          错误打进 stderr，验证摘要脱敏后落 transcript、note 带上最后一行；
+          auth-required 验证 -32000 给的是「去 Runner 设置配 key」而不是协议错误码；
+          顺手断言免鉴权的 Issue 详情响应全文不含 token 值与绝对路径。 */
+    step("acp-env-stderr-auth");
+    {
+      const echoLaunch = await bare("POST", `/api/issues/${acpIssueId}/launch`, { agentId: "mock-echo" });
+      assert.equal(echoLaunch.status, 201, JSON.stringify(echoLaunch.data));
+      const echoRunId = echoLaunch.data.task.sessionId;
+      await waitFor(async () => {
+        const detail = await bare("GET", `/api/issues/${acpIssueId}`);
+        return detail.data.issue.runs.find((item) => item.id === echoRunId).status === "completed";
+      }, "echo-env run 完成");
+      const echoRun = (await bare("GET", `/api/issues/${acpIssueId}`)).data.issue.runs.find((item) => item.id === echoRunId);
+      // note 必须是 agent 用注入的 env 回写进来的那句：注入一断，这里只会是「agent 执行完成」
+      assert.ok(echoRun.note.includes("echo-env 闭环"), echoRun.note);
+      const echoTr = await bare("GET", `/api/issues/${acpIssueId}/runs/${echoRunId}/transcript`);
+      assert.ok(
+        echoTr.data.entries.some(
+          (entry) => entry.type === "update" && String(entry.update?.content?.text || "").includes("echo-env"),
+        ),
+        "echo-env 的对话块要进 transcript",
+      );
+
+      const crashLaunch = await bare("POST", `/api/issues/${acpIssueId}/launch`, { agentId: "mock-crash" });
+      assert.equal(crashLaunch.status, 201);
+      const crashRunId = crashLaunch.data.task.sessionId;
+      await waitFor(async () => {
+        const detail = await bare("GET", `/api/issues/${acpIssueId}`);
+        return detail.data.issue.runs.find((item) => item.id === crashRunId).status === "failed";
+      }, "crash run 失败");
+      const crashRun = (await bare("GET", `/api/issues/${acpIssueId}`)).data.issue.runs.find((item) => item.id === crashRunId);
+      assert.ok(crashRun.note.includes("Cannot find module"), `failed 的 note 该带上 stderr 最后一行：${crashRun.note}`);
+      assert.ok(!crashRun.note.includes(bareData), `note 不能带本机绝对路径：${crashRun.note}`);
+      assert.ok(!crashRun.note.includes(bareToken), `note 不能带 token 值：${crashRun.note}`);
+      const crashTr = await bare("GET", `/api/issues/${acpIssueId}/runs/${crashRunId}/transcript`);
+      const stderrEntries = crashTr.data.entries.filter((entry) => entry.type === "stderr");
+      assert.equal(stderrEntries.length, 1, `stderr 摘要该恰好一条，实际 ${stderrEntries.length}`);
+      const stderrText = String(stderrEntries[0].text || "");
+      assert.ok(stderrText.includes("Cannot find module"), stderrText);
+      assert.ok(stderrText.includes("<工作目录>"), `路径该换成占位符：${stderrText}`);
+      assert.ok(stderrText.includes("<疑似密钥>"), `打进 stderr 的 token 该被抹掉：${stderrText}`);
+      assert.ok(!stderrText.includes(bareData), `摘要不能带数据目录绝对路径：${stderrText}`);
+      assert.ok(!stderrText.includes(bareToken), `摘要不能带 token 值：${stderrText}`);
+
+      const authLaunch = await bare("POST", `/api/issues/${acpIssueId}/launch`, { agentId: "mock-auth" });
+      assert.equal(authLaunch.status, 201);
+      const authRunId = authLaunch.data.task.sessionId;
+      await waitFor(async () => {
+        const detail = await bare("GET", `/api/issues/${acpIssueId}`);
+        return detail.data.issue.runs.find((item) => item.id === authRunId).status === "failed";
+      }, "auth-required run 失败");
+      const authRun = (await bare("GET", `/api/issues/${acpIssueId}`)).data.issue.runs.find((item) => item.id === authRunId);
+      assert.ok(authRun.note.includes("Runner 设置"), `该指路 Runner 设置：${authRun.note}`);
+      assert.ok(!authRun.note.includes("协议错误码"), `-32000 不该报成协议错误：${authRun.note}`);
+
+      // prompt / run 备注都会随免鉴权的详情口吐出去：token 值与本机路径一个都不能出现
+      const rawDetail = JSON.stringify((await bare("GET", `/api/issues/${acpIssueId}`)).data);
+      assert.ok(!rawDetail.includes(bareToken), "Issue 详情响应不该带 token 值");
+      assert.ok(!rawDetail.includes(bareData), "Issue 详情响应不该带数据目录绝对路径");
+      assert.ok(!/\/(Users|home|root|private|var|tmp)\//.test(rawDetail), `响应里不许出现本机绝对路径：${rawDetail.slice(0, 400)}`);
+    }
 
     /* ask 档：request_permission → run waiting → Issue 进「等我处理」→ API 选择 → 完成 */
     step("acp-permission-ask");
@@ -4538,6 +4765,8 @@ async function main() {
         AIDOCS_URL: "",
         BOOK_LIBRARY_URL: "",
         BLOTBOARD_GOAL_AGENT_SETTINGS: "",
+        // 与首启同一形态（自管 token）：重启后注入给 agent 的得是同一把
+        BLOTBOARD_INTERNAL_TOKEN: "",
         BLOTBOARD_ISSUE_SYNC_DEBOUNCE_MS: "120",
         // 重启要还原同一形态（含「快照关掉」），否则后面的 MCP 用例会对着另一台机器断言
         BLOTBOARD_CHECKPOINT_KEEP: "0",

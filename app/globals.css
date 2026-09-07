@@ -2428,6 +2428,8 @@ a.mini-btn { text-decoration: none; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .tk-row-meta { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 行尾的「本机 ACP」标记：跟板名同一行，靠间距区分，不另起一行占高度 */
+.tk-row-meta .tk-chip { margin-left: 6px; vertical-align: middle; }
 
 /* 状态 chip：镜头色跟着 tk-dot，run 状态给几个易认底色 */
 .tk-chip {
@@ -2500,6 +2502,20 @@ a.mini-btn { text-decoration: none; }
 .tk-agent-cmd { font-size: 11.5px; color: #565b63; margin-top: 4px; word-break: break-all; }
 .tk-agent-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
 .tk-agent-form { margin-top: 8px; }
+/* ACP 连通性检测的一行结论（颜色沿用 tk-chip 那套状态色，别再造一套） */
+.tk-probe { font-size: 11.5px; margin-top: 6px; border-radius: 7px; padding: 4px 8px; line-height: 1.5; }
+.tk-probe.running { background: #f3f4f6; color: var(--text-dim); }
+.tk-probe.ok { background: #e2f4ea; color: #237a57; }
+.tk-probe.warn { background: #fdf0dc; color: #9a6612; }
+.tk-probe.bad { background: #fdeaea; color: var(--danger); }
+.tk-probe-note { margin-top: 2px; opacity: 0.85; word-break: break-word; }
+.tk-probe-detail { margin-top: 3px; }
+.tk-probe-detail summary { cursor: pointer; opacity: 0.8; }
+.tk-probe-detail pre {
+  margin: 4px 0 0; padding: 5px 7px; border-radius: 6px; background: #fff;
+  font-size: 10.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-all;
+  max-height: 160px; overflow: auto;
+}
 .tk-field { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--text-dim); margin-bottom: 8px; }
 .tk-field input, .tk-field textarea {
   border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 12.5px;

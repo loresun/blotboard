@@ -12,8 +12,13 @@
  *    生成完整 prompt 供复制，agent 通过 /api/issues 回写（task-backend-local.ts）。
  *
  * 任务功能因此永远可用，不再有「未配置 → 503」的残缺形态。
+ *
+ * **本机 ACP 派单与这个选择正交**：launch 带 agentId 时，三种后端都走
+ * lib/integrations/acp-lane.ts（本机 spawn 一个 ACP agent 跑一轮）。远程后端下
+ * Issue 真源仍归对端，本机只留一条执行台账挂 run —— 详见那个文件的头注释。
  */
 import { TASK_BACKEND } from "../features";
+import { launchLocalAcp, localRunTask } from "./acp-lane";
 import { GOAL_AGENT_TARGET, HTTP_RUNNER_TARGET, callRunner, runnerProxyPath, type RunnerTarget } from "../goal-agent";
 import { ApiError } from "../http";
 import { localBackend } from "./task-backend-local";
@@ -28,12 +33,19 @@ export interface TaskBackend {
   /** 回推 Issue 正文（画板 → 后端单向同步，见 lib/issue-sync.ts）。 */
   patchIssue(issueId: string, payload: Record<string, unknown>): Promise<any>;
   /**
-   * 对已有 Issue 发起执行任务（local = 生成 prompt 挂成一个 run；带 agentId 时
-   * local 会真 spawn 该 ACP agent 子进程跑这一个 run）。
-   * options 是画板侧的扩展口：**只有 local 后端消费**，绝不进远程请求体——
-   * goal-agent 收到的 launch 请求体与从前逐字节一致（行为零变化是硬性验收项）。
+   * 对已有 Issue 发起执行任务。两条路：
+   *  - **不带 agentId**：local = 生成 prompt 挂成一个 run；远程 = 原样转给对端 Runner；
+   *  - **带 agentId**：一律走**本机 ACP 执行通道**（lib/integrations/acp-lane.ts）——
+   *    在任何后端下都成立。远程后端下 Issue 真源仍归对端，本机只开一条执行台账挂 run。
+   *
+   * options 是画板侧的扩展口：**绝不进远程请求体**——不带 agentId 时 goal-agent
+   * 收到的 launch 请求体与从前逐字节一致（行为零变化是硬性验收项）。
    */
-  launch(issueId: string, payload: Record<string, unknown>, options?: { agentId?: string | null }): Promise<any>;
+  launch(
+    issueId: string,
+    payload: Record<string, unknown>,
+    options?: { agentId?: string | null; origin?: { boardId?: string | null; cardId?: string | null } | null },
+  ): Promise<any>;
   /** 查执行任务的最新状态（不落库，真源在后端）。 */
   getTask(taskId: string): Promise<any>;
   /**
@@ -49,16 +61,45 @@ const encode = encodeURIComponent;
  * 远程 http 后端的通用实现（docs/RUNNER.md 的 4 动作 + 直通代理）。
  * goal-agent 与通用 http 后端只差一个落点（基址 + token 来源）。
  */
-function makeRemoteBackend(target: RunnerTarget): TaskBackend {
+function makeRemoteBackend(target: RunnerTarget, kind: "http" | "goal-agent"): TaskBackend {
   return {
     // origin 刻意丢弃：远程后端的请求体保持原形状（goal-agent 链路零变化）
     createIssue: (payload) => callRunner("POST", "/api/issues", payload, target),
     patchIssue: (issueId, payload) => callRunner("PATCH", `/api/issues/${encode(issueId)}`, payload, target),
-    launch: (issueId, payload) => callRunner("POST", `/api/issues/${encode(issueId)}/launch`, payload, target),
-    getTask: (taskId) => callRunner("GET", `/api/tasks/${encode(taskId)}`, undefined, target),
+
+    /**
+     * 带 agentId = 派给**本机**注册的 ACP agent（acp-lane），不打对端；
+     * 不带 = 原样转给对端 Runner（请求体逐字节不变）。
+     *
+     * 本机派单前先把对端 Issue 的当前标题正文取回来——执行的一定是现状，
+     * 而不是上一次抓下来的旧快照（与卡片派单前强制同步是同一条口径）。
+     */
+    launch: async (issueId, payload, options) => {
+      if (!options?.agentId) return callRunner("POST", `/api/issues/${encode(issueId)}/launch`, payload, target);
+      const fetched = await callRunner("GET", `/api/issues/${encode(issueId)}`, undefined, target);
+      const remote = fetched?.issue || fetched || {};
+      return launchLocalAcp({
+        agentId: String(options.agentId),
+        mode: payload.mode === "analyze" ? "analyze" : "implement",
+        external: { backend: kind, issueId, number: remote.identifier || remote.number || null },
+        title: remote.title || `远程 Issue ${remote.identifier || issueId}`,
+        description: remote.description || "",
+        origin: options.origin || null,
+      });
+    },
+
+    // 前缀路由：`r_` 开头且本地查得到 = 本机 ACP run，就地服务；否则打对端
+    getTask: async (taskId) => localRunTask(taskId) || (await callRunner("GET", `/api/tasks/${encode(taskId)}`, undefined, target)),
+
     proxy: (method, subPath, query, body) => {
       const proxied = runnerProxyPath(subPath, method);
       if (!proxied) throw new ApiError("该 Runner 路径未开放", 404);
+      // 任务卡页脚 / 任务台轮询都走这条代理：本机 run 同样要在这里被截住
+      const taskMatch = /^\/api\/tasks\/([A-Za-z0-9._-]+)$/.exec(proxied);
+      if (taskMatch && method === "GET") {
+        const local = localRunTask(taskMatch[1]);
+        if (local) return Promise.resolve(local);
+      }
       return callRunner(method, `${proxied}${query}`, body, target);
     },
   };
@@ -66,7 +107,7 @@ function makeRemoteBackend(target: RunnerTarget): TaskBackend {
 
 export const taskBackend: TaskBackend =
   TASK_BACKEND === "http"
-    ? makeRemoteBackend(HTTP_RUNNER_TARGET)
+    ? makeRemoteBackend(HTTP_RUNNER_TARGET, "http")
     : TASK_BACKEND === "goal-agent"
-      ? makeRemoteBackend(GOAL_AGENT_TARGET)
+      ? makeRemoteBackend(GOAL_AGENT_TARGET, "goal-agent")
       : localBackend;

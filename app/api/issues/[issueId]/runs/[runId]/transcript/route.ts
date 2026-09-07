@@ -1,6 +1,6 @@
 import { readTranscript } from "@/lib/acp/transcript";
 import { ok, notFound, route } from "@/lib/http";
-import { assertLocalIssues } from "@/lib/issue-service";
+import { assertLocalRun } from "@/lib/issue-service";
 import { findRun } from "@/lib/issue-store";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +13,8 @@ type Ctx = { params: Promise<{ issueId: string; runId: string }> };
  * 顺带回 run 的当前状态与挂起的权限请求——轮询一次拿全，前端不用拆两个请求。
  */
 export const GET = route(async (request: Request, ctx: Ctx) => {
-  assertLocalIssues();
   const { issueId, runId } = await ctx.params;
+  assertLocalRun(runId);
   const found = findRun(runId);
   if (!found || found.issue.id !== issueId) throw notFound("run 不存在");
   const url = new URL(request.url);

@@ -1,6 +1,6 @@
 import { assertCanWrite } from "@/lib/auth";
 import { notFound, ok, readJson, route } from "@/lib/http";
-import { assertLocalIssues, decorateIssue } from "@/lib/issue-service";
+import { assertLocalIssue, decorateIssue } from "@/lib/issue-service";
 import { getIssue, patchIssue, requireIssue } from "@/lib/issue-store";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +13,8 @@ type Ctx = { params: Promise<{ issueId: string }> };
  * 还没发起过任务时给正文本身（复制出去也是能用的任务说明）。
  */
 export const GET = route(async (_request: Request, ctx: Ctx) => {
-  assertLocalIssues();
   const { issueId } = await ctx.params;
+  assertLocalIssue(issueId);
   const issue = requireIssue(issueId);
   const lastRun = issue.runs[issue.runs.length - 1] || null;
   return ok({
@@ -29,9 +29,9 @@ export const GET = route(async (_request: Request, ctx: Ctx) => {
  * 鉴权与其他写口同一套：x-auth-key = 内部 token，或浏览器同源 + x-board-web 头。
  */
 export const PATCH = route(async (request: Request, ctx: Ctx) => {
-  assertLocalIssues();
-  assertCanWrite(request);
   const { issueId } = await ctx.params;
+  assertLocalIssue(issueId);
+  assertCanWrite(request);
   if (!getIssue(issueId)) throw notFound("Issue 不存在");
   const body = await readJson(request);
   const issue = patchIssue(issueId, body);

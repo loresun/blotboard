@@ -11,7 +11,11 @@
  *  - **local**：数据就在本地（/api/issues）。详情里能复制完整 prompt、改状态、
  *    看 runs 时间线与日志；孤儿 Issue（板 / 卡已删）只有这里能看到。
  *  - **goal-agent / http**：聚合镜像——数据来自跨画板任务聚合（/api/boards/tasks）
- *    + Runner 实时状态。真源在外部 Runner，这里只做列表、状态与跳转。
+ *    + Runner 实时状态。Issue 真源在外部 Runner，这里做列表、状态与跳转，
+ *    **外加一条本机执行路**：任意一条都能派给本机注册的 ACP agent 跑
+ *    （lib/integrations/acp-lane.ts）。那种 run 的 id 以 `r_` 开头，列表行打「本机 ACP」标记、
+ *    左栏多一个「本机执行」镜头、详情里多一块流式 transcript + 权限确认 + 中止——
+ *    最后这块是外部 Runner 那条路给不了的，也正是两条路值得分开呈现的原因。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -49,6 +53,30 @@ const LOCAL_LENSES = [
   { key: "done", labelKey: "pages.tasks.lens.done" },
   { key: "aborted", labelKey: "pages.tasks.lens.aborted" },
 ] as const satisfies readonly { key: string; labelKey: DictKey }[];
+
+/**
+ * 远程形态下选中任务的实时状态。前四个字段两条执行路都有；后四个只有**本机 ACP run**
+ * 才填得出来（`/api/runner/tasks/:id` 命中本机 run 时由 acp-lane 就地服务）——
+ * 详情页据此多渲染一块流式 transcript / 权限确认，那正是外部 Runner 给不了的部分。
+ */
+interface LiveTaskInfo {
+  status: string;
+  summary: string;
+  updatedAt: number | null;
+  kind: string;
+  agentName: string | null;
+  /** 本机执行台账的 Issue id（transcript / 权限确认的路径前缀） */
+  ledgerIssueId: string | null;
+  mode: string | null;
+}
+
+/** 远程形态多出来的横切镜头：按「谁在执行」筛，而不是按任务状态 */
+const LOCAL_RUN_LENS = "local_acp";
+
+/** 本机 ACP run 的 id 一律 `r_` 开头：列表行只有 taskId 可看，靠前缀认出「跑在本机」 */
+function isLocalRunId(taskId: string | null | undefined): boolean {
+  return Boolean(taskId && taskId.startsWith("r_"));
+}
 
 /** Issue 状态的小圆点颜色（镜头行与状态 chip 共用） */
 const LENS_DOT: Record<string, string> = {
@@ -147,11 +175,12 @@ export function TasksApp() {
   const [detail, setDetail] = useState<{ issue: LocalIssueItem; prompt: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  /* ACP agent 注册表（local 专属）：详情里的「交给 agent 执行」下拉用它 */
+  /* ACP agent 注册表：两种形态的详情里都有「交给本机 agent 执行」下拉
+     （本机派单与任务后端正交，见 lib/integrations/acp-lane.ts） */
   const [runnerAgents, setRunnerAgents] = useState<RunnerAgentInfo[]>([]);
   const [runnerDefault, setRunnerDefault] = useState<string | null>(null);
   const loadRunner = useCallback(() => {
-    if (backend !== "local") return;
+    if (!backend) return;
     api
       .runnerSettings()
       .then((payload) => {
@@ -234,7 +263,7 @@ export function TasksApp() {
   /* ── goal-agent / http 模式的数据（聚合镜像） ────── */
   const [tasks, setTasks] = useState<TaskIndexItem[] | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskIndexItem | null>(null);
-  const [liveTask, setLiveTask] = useState<{ status: string; summary: string; updatedAt: number | null } | null>(null);
+  const [liveTask, setLiveTask] = useState<LiveTaskInfo | null>(null);
   const [liveIssue, setLiveIssue] = useState<any>(null);
 
   const loadTasks = useCallback(async () => {
@@ -270,7 +299,10 @@ export function TasksApp() {
     return (tasks || [])
       .filter((item) => {
         if (boardFilter && item.boardId !== boardFilter) return false;
-        if (lens !== "all" && (item.card.task?.status || "idea") !== lens) return false;
+        // 「本机执行」是一个横切镜头（按执行者筛），不是任务状态里的第五档
+        if (lens === LOCAL_RUN_LENS) {
+          if (!isLocalRunId(item.card.task?.taskId)) return false;
+        } else if (lens !== "all" && (item.card.task?.status || "idea") !== lens) return false;
         if (!key) return true;
         return [item.card.title, item.card.content, item.card.task?.goal, item.card.task?.issueNumber, item.boardName]
           .filter(Boolean)
@@ -294,8 +326,11 @@ export function TasksApp() {
         .toLowerCase()
         .includes(key);
     });
-    const result: Record<string, number> = { all: pool.length, idea: 0, issued: 0, running: 0, done: 0 };
-    for (const item of pool) result[item.card.task?.status || "idea"] += 1;
+    const result: Record<string, number> = { all: pool.length, idea: 0, issued: 0, running: 0, done: 0, [LOCAL_RUN_LENS]: 0 };
+    for (const item of pool) {
+      result[item.card.task?.status || "idea"] += 1;
+      if (isLocalRunId(item.card.task?.taskId)) result[LOCAL_RUN_LENS] += 1;
+    }
     return result;
   }, [backend, tasks, boardFilter, keyword]);
 
@@ -321,7 +356,16 @@ export function TasksApp() {
         .then((payload) => {
           if (!alive) return;
           const task = payload.task || payload;
-          setLiveTask({ status: task.status || "unknown", summary: task.summary || "", updatedAt: task.updatedAt || null });
+          setLiveTask({
+            status: task.status || "unknown",
+            summary: task.summary || "",
+            updatedAt: task.updatedAt || null,
+            // 本机 ACP run 才有这几样：kind=acp、执行台账的 issueId、agent 名字
+            kind: task.kind || "prompt",
+            agentName: task.agentName || null,
+            ledgerIssueId: task.issueId || null,
+            mode: task.mode || null,
+          });
         })
         .catch(() => undefined);
     }
@@ -344,6 +388,8 @@ export function TasksApp() {
     : [
         { key: "all", label: t("pages.tasks.lens.all"), count: remoteCounts.all ?? 0 },
         ...TASK_COLUMNS.map((status) => ({ key: status, label: t(STATUS_META[status]), count: remoteCounts[status] ?? 0 })),
+        // 按「谁在执行」切一刀：跑在本机的那些，进展与权限确认都在这一页里，值得单独一眼
+        { key: LOCAL_RUN_LENS, label: t("pages.tasks.lens.localAcp"), count: remoteCounts[LOCAL_RUN_LENS] ?? 0 },
       ];
 
   const listEmptyText = keyword || boardFilter ? t("pages.tasks.emptyFiltered") : t("pages.tasks.empty");
@@ -492,7 +538,12 @@ export function TasksApp() {
                     <span className="tk-time">{relTime(item.card.updatedAt || item.card.createdAt, t)}</span>
                   </div>
                   <div className="tk-row-title">{item.card.title || t("pages.tasks.untitled")}</div>
-                  <div className="tk-row-meta">{item.boardName}</div>
+                  <div className="tk-row-meta">
+                    {item.boardName}
+                    {isLocalRunId(item.card.task?.taskId) ? (
+                      <span className="tk-chip acp">{t("pages.tasks.localAcp.chip")}</span>
+                    ) : null}
+                  </div>
                 </button>
               );
             })
@@ -521,7 +572,15 @@ export function TasksApp() {
               <div className="nav-empty big">{t("pages.tasks.pickIssue")}</div>
             )
           ) : selectedTask ? (
-            <RemoteDetail item={selectedTask} live={liveTask} issue={liveIssue} />
+            <RemoteDetail
+              item={selectedTask}
+              live={liveTask}
+              issue={liveIssue}
+              agents={runnerAgents}
+              defaultAgentId={runnerDefault}
+              onRefresh={loadTasks}
+              showToast={showToast}
+            />
           ) : (
             <div className="nav-empty big">{t("pages.tasks.pickTask")}</div>
           )}
@@ -909,10 +968,18 @@ function RemoteDetail({
   item,
   live,
   issue,
+  agents,
+  defaultAgentId,
+  onRefresh,
+  showToast,
 }: {
   item: TaskIndexItem;
-  live: { status: string; summary: string; updatedAt: number | null } | null;
+  live: LiveTaskInfo | null;
   issue: any;
+  agents: RunnerAgentInfo[];
+  defaultAgentId: string | null;
+  onRefresh: () => void;
+  showToast: (text: string) => void;
 }) {
   const t = useT();
   const card = item.card;
@@ -920,6 +987,27 @@ function RemoteDetail({
   const Icon = STATUS_ICON[status];
   const taskId = card.task?.taskId || null;
   const issueId = card.task?.issueId || null;
+  const [agentPick, setAgentPick] = useState("");
+  const [launching, setLaunching] = useState(false);
+  const pickedAgent = agentPick || defaultAgentId || agents[0]?.id || "";
+  // 本机 run 的身份只有轮询回来的 live 说得准（taskId 前缀先筛一道，省一次无谓渲染）
+  const localRun = isLocalRunId(taskId) && live?.kind === "acp" ? live : null;
+  const localBusy = localRun ? localRun.status === "running" || localRun.status === "waiting" : false;
+
+  /** 派给本机注册的 ACP agent 跑一轮（Issue 真源仍在对端，见 lib/integrations/acp-lane.ts） */
+  async function launchLocal() {
+    if (!pickedAgent) return;
+    setLaunching(true);
+    try {
+      await api.launchCard(item.boardId, card.id, "implement", pickedAgent);
+      showToast(t("pages.tasks.toast.launched"));
+      onRefresh();
+    } catch (err) {
+      showToast((err as Error).message);
+    } finally {
+      setLaunching(false);
+    }
+  }
   return (
     <div className="tk-detail-body">
       <div className="tk-detail-head">
@@ -987,6 +1075,9 @@ function RemoteDetail({
           <div className="tk-run">
             <div className="tk-run-head">
               <span className={`tk-chip run-${live.status}`}>{runnerStatusLabel(live.status, t)}</span>
+              {localRun ? (
+                <span className="tk-chip acp">{t("pages.tasks.localAcp.by", { agent: localRun.agentName || "ACP" })}</span>
+              ) : null}
               {live.updatedAt ? <span className="tk-time">{formatTime(live.updatedAt)}</span> : null}
               <span className="mono tk-run-mode">{taskId}</span>
             </div>
@@ -998,6 +1089,92 @@ function RemoteDetail({
           <div className="config-hint">{t("pages.tasks.task.none")}</div>
         )}
       </div>
+
+      {/* 本机执行：与上面的「外部 Runner 执行状态」并列的第二条路。
+          流式 transcript / 权限确认 / 中止都只在这一块里——那是外部 Runner 给不了的部分。 */}
+      <div className="td-label">{t("pages.tasks.localAcp")}</div>
+      <div className="config-hint">{t("pages.tasks.localAcp.hint")}</div>
+      {!issueId ? (
+        <div className="config-hint">{t("pages.tasks.localAcp.needIssue")}</div>
+      ) : !agents.length ? (
+        <div className="config-hint">{t("pages.tasks.localAcp.noAgent")}</div>
+      ) : (
+        <div className="tk-actions">
+          <select
+            className="tk-select"
+            value={pickedAgent}
+            onChange={(event) => setAgentPick(event.target.value)}
+            title={t("pages.tasks.agentSelect.title")}
+          >
+            {agents.map((agent) => (
+              <option key={agent.id} value={agent.id}>
+                {agent.name}
+              </option>
+            ))}
+          </select>
+          <button
+            className="mini-btn primary"
+            disabled={launching || localBusy || !pickedAgent}
+            title={localBusy ? t("pages.tasks.localAcp.busy.title") : t("pages.tasks.localAcp.hint")}
+            onClick={() => void launchLocal()}
+          >
+            <UI.run {...ICON_SM} />{" "}
+            {launching
+              ? t("pages.tasks.localAcp.launching")
+              : localBusy
+                ? t("pages.tasks.localAcp.busy")
+                : t("pages.tasks.localAcp.launch")}
+          </button>
+        </div>
+      )}
+      {localRun && localRun.ledgerIssueId && taskId ? (
+        <div className="tk-runs">
+          <div className="tk-run">
+            <div className="tk-run-head">
+              <span className={`tk-chip run-${localRun.status}`}>{runnerStatusLabel(localRun.status, t)}</span>
+              <span className="tk-chip acp">{t("pages.tasks.localAcp.by", { agent: localRun.agentName || "ACP" })}</span>
+              {localRun.mode ? <span className="tk-run-mode mono">{localRun.mode}</span> : null}
+              {localRun.updatedAt ? <span className="tk-time">{formatTime(localRun.updatedAt)}</span> : null}
+              {localBusy ? (
+                <button
+                  className="mini-btn"
+                  title={t("pages.tasks.run.abort.title")}
+                  onClick={async () => {
+                    try {
+                      await api.patchLocalRun(localRun.ledgerIssueId!, taskId, { status: "aborted" });
+                      showToast(t("pages.tasks.toast.aborted"));
+                      onRefresh();
+                    } catch (err) {
+                      showToast((err as Error).message);
+                    }
+                  }}
+                >
+                  <UI.ban {...ICON_SM} /> {t("pages.tasks.abort")}
+                </button>
+              ) : null}
+            </div>
+            <AcpRunView
+              issueId={localRun.ledgerIssueId}
+              run={{
+                id: taskId,
+                status: localRun.status as any,
+                note: localRun.summary || null,
+                kind: "acp",
+                agentName: localRun.agentName,
+                mode: (localRun.mode as any) || "implement",
+                updatedAt: localRun.updatedAt || Date.now(),
+                launchedAt: localRun.updatedAt || Date.now(),
+                prompt: "",
+                permissionRequest: null,
+              }}
+              onRefresh={onRefresh}
+              showToast={showToast}
+            />
+          </div>
+        </div>
+      ) : issueId && agents.length ? (
+        <div className="config-hint">{t("pages.tasks.localAcp.none")}</div>
+      ) : null}
 
       <div className="tk-side-note">{t("pages.tasks.mirrorNote")}</div>
     </div>

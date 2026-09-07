@@ -122,6 +122,38 @@ export interface RunnerSettingsInfo {
     defaultAgentId: string | null;
     permissionMode: "ask" | "auto";
   };
+  /** 内置 ACP agent 预设（「一键添加」用，真源 lib/acp/presets.ts） */
+  presets?: RunnerPresetInfo[];
+}
+
+export interface RunnerPresetInfo {
+  key: string;
+  name: string;
+  command: string;
+  args: string[];
+  fallback?: { command: string; args: string[] };
+  auth: string;
+  note?: string;
+}
+
+/** 一次 ACP 连通性检测的结果（POST /api/runner-settings/probe） */
+export interface AcpProbeResult {
+  ok: boolean;
+  stage: "spawn" | "initialize" | "session" | "done";
+  command: string;
+  args: string[];
+  ms: number;
+  protocolVersion: number | null;
+  authMethods: string[];
+  needsAuth: boolean;
+  error: string | null;
+  stderrTail: string | null;
+  /* 探预设时才有 */
+  presetKey?: string;
+  name?: string;
+  via?: "primary" | "fallback" | null;
+  auth?: string;
+  note?: string | null;
 }
 
 /** transcript 增量拉取的一页 */
@@ -583,11 +615,12 @@ export const api = {
   syncBoardIssues: (boardId: string, force = false) =>
     call<Revised<IssueSyncReport>>("POST", `/api/boards/${boardId}/issue-sync`, { force }),
 
-  launchCard: (boardId: string, cardId: string, mode: "implement" | "analyze") =>
+  /** 卡片发起执行；带 agentId = 交给本机注册的 ACP agent 真跑（任何任务后端下都成立） */
+  launchCard: (boardId: string, cardId: string, mode: "implement" | "analyze", agentId?: string | null) =>
     call<{ task: { sessionId: string | null }; card: BoardCard }>(
       "POST",
       `/api/boards/${boardId}/cards/${cardId}/launch`,
-      { mode },
+      { mode, ...(agentId ? { agentId } : {}) },
     ),
 
   runnerTask: (taskId: string) => call<any>("GET", `/api/runner/tasks/${encodeURIComponent(taskId)}`),
@@ -647,6 +680,10 @@ export const api = {
 
   patchRunnerSettings: (patch: Record<string, unknown>) =>
     call<RunnerSettingsInfo>("PATCH", "/api/runner-settings", patch),
+
+  /** ACP 连通性检测：presetKey（探预设，含 npx 兜底）/ agentId（探已注册的）/ command+args（探草稿） */
+  probeAcpAgent: (payload: { presetKey?: string; agentId?: string; command?: string; args?: string[]; cwd?: string }) =>
+    call<{ result: AcpProbeResult }>("POST", "/api/runner-settings/probe", payload).then((data) => data.result),
 
   listAgentCommands: () =>
     call<{ commands: AgentCommand[] }>("GET", "/api/agent-commands").then((data) => data.commands || []),

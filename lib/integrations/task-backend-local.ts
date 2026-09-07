@@ -29,7 +29,7 @@ const MODE_LABEL: Record<"implement" | "analyze", string> = {
  * Issue 正文本身已含画板上下文 / 未解决评论 / 卡片 agent 指令（lib/issue-sync.ts 拼的），
  * 这里补的是三样别处没有的：深链、执行模式、回写指引（含 token 说明）。
  */
-function buildRunPrompt(issue: issues.LocalIssue, mode: "implement" | "analyze", runId: string): string {
+export function buildRunPrompt(issue: issues.LocalIssue, mode: "implement" | "analyze", runId: string): string {
   const base = PUBLIC_URL.replace(/\/+$/, "");
   const links: string[] = [];
   if (issue.boardId) {
@@ -71,7 +71,7 @@ function buildRunPrompt(issue: issues.LocalIssue, mode: "implement" | "analyze",
 }
 
 /** run → 任务卡轮询的形状。summary 给页脚 / 抽屉一句能看的话。 */
-function runAsTask(found: { issue: issues.LocalIssue; run: issues.LocalIssueRun }) {
+export function runAsTask(found: { issue: issues.LocalIssue; run: issues.LocalIssueRun }) {
   const { issue, run } = found;
   const acp = run.kind === "acp";
   const summary =
