@@ -3,6 +3,42 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.4] - 2026-09-09
+
+### 修复：源码放错位置静默变空白卡、超长图被砍半、视口没法单独调、批量落卡无幂等
+
+一次落 20 张 SVG 卡时踩出来的静默失败。共同点是**服务端 201、卡面却不对，
+调用方看不出哪一步吞的**——都改成当场点名；顺带补上批量落卡与自动摆位。
+
+- **顶层 `source` 被静默吞掉**：agent 最顺手的写法 `{"type":"svg","source":"<svg…>"}`，
+  卡包 schema 只读 `input.svg`，顶层 `source` 从头到尾没人看 → 落库成功、卡面空白。
+  新增 `assertSourceNotTopLevel`（`lib/normalize-base.ts`），svg / mermaid / code /
+  excalidraw 四类卡的 `onCreate` / `onConvert` / `onPatch` 一律先过闸门，误传时
+  400 并给出正确写法。**规格卡（data）不在此列**——它的 `source` 合法位置在
+  `data.source` 里（app / url / externalId），所以闸门只加在四类源码卡上。
+- **超上限静默截断**：`MAX_DIAGRAM_SOURCE`（40 000）在 svg / mermaid 上是
+  `.slice(0, MAX)`——截一半的 SVG 不是良构 XML，卡面直接裂图。改为与
+  code / excalidraw 卡同一条口径：超限抛 400 并报出实际字符数。
+- **`board_layout` 没法只调视口**：服务端 `PUT /api/boards/{id}/state` 早就支持
+  纯 `viewport`，但 MCP 工具的 inputSchema 里没有这个字段，handler 也在
+  `mode` 缺失时直接抛「mode 与 cards 至少给一个」——只能绕到 `PATCH /api/boards/{id}`。
+  工具层补上 `viewport` 入参与分支（不重排、不动任何卡片坐标），报错文案同步。
+- **批量落卡没有幂等入口**：批量新建只能 for 循环打 N 次单卡接口（N 次往返 + N 次
+  落盘），而现有的 `/paste` 一律换新 id、重试必重复。`POST /api/boards/{id}/cards`
+  现在认 `{cards:[…], onDuplicate?}`：一次事务落一批，**幂等靠调用方自带的 `c_` id**
+  ——命中已有 id 默认进 `skipped`（不报 409），原样重试安全；`onDuplicate:"create"`
+  则换新 id 再建一张。返回 `{cards, created, skipped, updatedAt}`。
+- **无坐标卡全叠在 (80,80)**：`normalizeCardInput` 对缺省坐标一律给 80,80，连发几张
+  就全叠在一处，肉眼只看到最后一张。把信封导入里的网格摆位抽成 `lib/auto-place.ts`，
+  单卡建卡 / 批量建卡 / 信封导入共用一份规则（只碰 x/y **双缺省**的卡）。同时把
+  `grid` 整理模式的说明补上「会覆盖已有卡片坐标」——它一直是全量重排，只是文档没说透。
+
+回归：`npm run check` 全绿；`scripts/smoke-api.mjs` 新增四组断言——四类卡顶层
+`source` → 400 且嵌套写法仍 201、svg/mermaid 超限 → 400 报实际数字、
+`board_layout` 纯 `viewport` 生效且卡片数不变、批量建卡 3 张落 3 处坐标 +
+带 id 重试 `created:0 / skipped:2` + `onDuplicate:"create"` 换新 id。
+线上实例逐条复验通过。
+
 ## [1.0.3] - 2026-09-08
 
 ### 修复：图片多的画板把界面占死，图片加载期间整个服务变慢

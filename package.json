@@ -1,6 +1,6 @@
 {
   "name": "blotboard",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "license": "MIT",
   "type": "module",
   "description": "Blotboard · 泼墨画板 —— 人与任何 agent 共用的本地优先画板（Next.js + React Flow），数据自管，任务可接 ACP agent 或任意 HTTP Runner。",

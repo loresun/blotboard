@@ -45,6 +45,7 @@ import {
   normalizeTaskField,
   normalizeViewport,
 } from "./board-schema";
+import { placeMissingCards } from "./auto-place";
 import { BOARD_CARD_TYPES, CARD_COLORS, EDGE_KINDS, EDGE_STYLES } from "./types";
 import { serverPack } from "./card-registry";
 import { typeLabelOf } from "./card-metas";
@@ -470,21 +471,31 @@ export function pruneFrameLinks(target: Board): void {
 
 /* ── 卡片 ─────────────────────────────────────────── */
 
-export function createCard(boardId: string, body: Record<string, any>): BoardCard {
-  const board = store.requireBoard(boardId);
-  // 建卡严、收卡宽（兼容铁律 5）：**新建**接口对类型把闸——
-  // 未知类型明确拒绝；停用的包也拒绝（画板上已有的这类卡不受影响，只挡新建）。
-  // whole / 粘贴 / 信封走各自的路，不经过这道闸。
-  const type = body.type === undefined || body.type === null || body.type === "" ? "text" : String(body.type);
+/**
+ * 建卡严、收卡宽（兼容铁律 5）：**新建**接口对类型把闸——
+ * 未知类型明确拒绝；停用的包也拒绝（画板上已有的这类卡不受影响，只挡新建）。
+ * whole / 粘贴 / 信封走各自的路，不经过这道闸。
+ */
+function assertCreatableType(rawType: unknown): string {
+  const type = rawType === undefined || rawType === null || rawType === "" ? "text" : String(rawType);
   if (!serverPack(type)) {
     throw badRequest(`未知卡片类型「${type}」——这台画板没有对应的卡片包（GET /api/card-packs 看有哪些）`);
   }
   if (!isPackEnabled(type)) {
     throw badRequest(`卡片包「${typeLabelOf(type)}」（${type}）已停用，在卡片中心打开它才能新建这类卡片`);
   }
+  return type;
+}
+
+export function createCard(boardId: string, body: Record<string, any>): BoardCard {
+  const board = store.requireBoard(boardId);
+  assertCreatableType(body.type);
   const created = store.mutateBoard(board.id, (target) => {
+    // 没给坐标就自动摆位（否则一律落 80,80，连发几张会全叠在一起）
+    const payload = { ...body };
+    placeMissingCards(target, [payload]);
     // strict：建卡严——color / task.status 之类枚举写错就 400，不静默兜底
-    const card = normalizeCardInput(body, { uploadsDir, strict: true });
+    const card = normalizeCardInput(payload, { uploadsDir, strict: true });
     if ((target.cards || []).some((entry) => entry.id === card.id)) throw conflict("卡片 id 已存在");
     assertFrameRef(target, card);
     target.cards.push(card);
@@ -493,6 +504,53 @@ export function createCard(boardId: string, body: Record<string, any>): BoardCar
   });
   scheduleIssueSync(board.id);
   return created;
+}
+
+/**
+ * 批量建卡：`{cards:[…], onDuplicate?:"skip"|"create"}`。
+ *
+ * 一次事务、一次落盘——批量落 N 张卡不必再打 N 次单卡接口。
+ * **幂等靠调用方自带的 `c_` id**：命中已有 id 默认跳过（进 `skipped`，不报 409），
+ * 所以「网络超时后原样重试」是安全的；`onDuplicate:"create"` 则强制换新 id 再建一张。
+ * 没带 id 的卡一律新建（与单卡接口一致，重试会重复——要幂等就带 id）。
+ */
+export function createCards(
+  boardId: string,
+  body: Record<string, any>,
+): { cards: BoardCard[]; created: number; skipped: string[]; updatedAt: number } {
+  const board = store.requireBoard(boardId);
+  const list = Array.isArray(body?.cards) ? (body.cards as unknown[]) : [];
+  if (!list.length) throw badRequest("批量建卡要一个非空的 cards 数组：POST /api/boards/{id}/cards {cards:[…]}");
+  if (list.length > MAX_BATCH_CARDS) throw badRequest(`一次最多建 ${MAX_BATCH_CARDS} 张卡片`);
+  const onDuplicate = body.onDuplicate === "create" ? "create" : "skip";
+
+  const result = store.mutateBoard(board.id, (target) => {
+    const payloads = list.map((raw) => (raw && typeof raw === "object" ? { ...(raw as Record<string, any>) } : {}));
+    for (const payload of payloads) assertCreatableType(payload.type);
+    placeMissingCards(target, payloads);
+    const knownIds = new Set((target.cards || []).map((card) => card.id));
+    const cards: BoardCard[] = [];
+    const skipped: string[] = [];
+    for (const payload of payloads) {
+      const wanted = CARD_ID_RE.test(String(payload.id || "")) ? String(payload.id) : "";
+      if (wanted && knownIds.has(wanted)) {
+        if (onDuplicate === "skip") {
+          skipped.push(wanted);
+          continue;
+        }
+        delete payload.id; // create 模式：换一张新卡，别撞已有 id
+      }
+      const card = normalizeCardInput(payload, { uploadsDir, strict: true });
+      assertFrameRef(target, card);
+      target.cards.push(card);
+      knownIds.add(card.id);
+      cards.push(card);
+    }
+    if (cards.length) target.updatedAt = Date.now();
+    return { cards, created: cards.length, skipped, updatedAt: target.updatedAt };
+  });
+  if (result.created) scheduleIssueSync(board.id);
+  return result;
 }
 
 export function patchCard(boardId: string, cardId: string, body: Record<string, any>): BoardCard {

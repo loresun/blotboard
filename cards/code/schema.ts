@@ -1,6 +1,6 @@
 /** 代码卡的服务端归一化。 */
 import type { CodeField } from "@/lib/types";
-import { MAX_DIAGRAM_SOURCE, cleanText, codeSourceText } from "@/lib/normalize-base";
+import { MAX_DIAGRAM_SOURCE, assertSourceNotTopLevel, cleanText, codeSourceText } from "@/lib/normalize-base";
 import { badRequest } from "@/lib/http";
 import { CODE_LANGUAGE_RE } from "./languages";
 import type { CardPackSchema } from "@/lib/card-pack-types";
@@ -56,12 +56,15 @@ export function normalizeCodeField(code: Partial<CodeField> = {}): CodeField {
 
 export const schema: CardPackSchema = {
   onCreate(card, input) {
+    assertSourceNotTopLevel(input, "code", "code");
     card.code = normalizeCodeField(input.code);
   },
   onConvert(card, patch) {
+    assertSourceNotTopLevel(patch, "code", "code");
     card.code = normalizeCodeField(patch.code || card.code || {});
   },
   onPatch(card, patch) {
+    assertSourceNotTopLevel(patch, "code", "code");
     // 合并而不是整体替换：抽屉里只改了语言 / 文件名时，源码不该被清空（与 html 卡同一节奏）
     if (patch.code !== undefined) card.code = normalizeCodeField({ ...(card.code || {}), ...patch.code });
   },

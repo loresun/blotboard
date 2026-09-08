@@ -41,7 +41,7 @@ export const LAYOUT_MODES: { mode: TidyMode; label: string; desc: string }[] = [
   { mode: "LR", label: "横向分层", desc: "dagre 按连线方向从左到右分层重排（会推翻当前布局）" },
   { mode: "TB", label: "纵向分层", desc: "dagre 自上而下分层重排（会推翻当前布局）" },
   { mode: "group", label: "按类型分区", desc: "同类卡片聚成一区，区与区之间留白" },
-  { mode: "grid", label: "网格铺开", desc: "不看连线，全部对齐铺成网格" },
+  { mode: "grid", label: "网格铺开", desc: "不看连线，全部对齐铺成网格（**会覆盖已有卡片的坐标**，改砸了用画板「历史」回滚）" },
   {
     mode: "timeline",
     label: "时间线",

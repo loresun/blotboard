@@ -129,3 +129,24 @@ export function codeSourceText(value: unknown, field: string): string {
   }
   return String(value);
 }
+
+/**
+ * 源码被放在**顶层 source**、而不是嵌在卡片自己的字段里时，当场 400。
+ *
+ * agent 最常见的写法是 `{type:"svg", source:"<svg…>"}`——卡包 schema 只读 `input.svg`，
+ * 顶层 source 从头到尾没人看，于是落库成功、卡面空白（返回 201），调用方完全看不出哪一步吞的。
+ * 这里把它换成一条能照着改的 400。
+ *
+ * **data 卡是例外**：规格卡的顶层 source 是合法字段（app / url / externalId），
+ * 所以这个函数只给 svg / mermaid / code / excalidraw 用，不要往通用归一化里塞。
+ */
+export function assertSourceNotTopLevel(input: unknown, field: string, type: string): void {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return;
+  const record = input as Record<string, unknown>;
+  if (record[field] === undefined && record.source !== undefined) {
+    throw badRequest(
+      `${type} 卡的源码要嵌在 ${field} 字段里：{"type":"${type}","${field}":{"source":"…"}}` +
+        "——顶层 source 不会被读取，那样只会落出一张空白卡",
+    );
+  }
+}

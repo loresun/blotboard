@@ -492,6 +492,61 @@ async function main() {
   await request("DELETE", `/api/boards/${boardId}/cards/${svgCreated.data.card.id}`);
   await request("DELETE", `/api/boards/${boardId}/cards/${htmlCardId}`);
 
+  /* 顶层 source 闸门：卡包只读卡片自己的字段，顶层 source 会被静默丢掉 → 必须 400 点名 */
+  step("source-nesting-guard");
+  for (const [type, field] of [["svg", "svg"], ["mermaid", "mermaid"], ["code", "code"], ["excalidraw", "excalidraw"]]) {
+    const topLevel = await request("POST", `/api/boards/${boardId}/cards`, { body: { type, source: "{}" } });
+    assert.equal(topLevel.status, 400, `${type} 卡把源码放顶层 source 要 400`);
+    assert.ok(topLevel.data.error.includes(field), topLevel.data.error);
+    // 嵌套写法照常收下（闸门不能误伤正确写法）
+    const source = type === "excalidraw"
+      ? '{"type":"excalidraw","elements":[]}'
+      : type === "code"
+        ? "let a = 1"
+        : type === "mermaid"
+          ? "graph TD; A-->B"
+          : '<svg viewBox="0 0 1 1"></svg>';
+    const nested = await request("POST", `/api/boards/${boardId}/cards`, { body: { type, [field]: { source } } });
+    assert.equal(nested.status, 201, `${type} 嵌套写法要收下：${JSON.stringify(nested.data)}`);
+    await request("DELETE", `/api/boards/${boardId}/cards/${nested.data.card.id}`);
+  }
+  /* 超限不再静默截断：svg / mermaid 与 code 卡同一口径报 400（截一半的图必然坏） */
+  for (const [type, field] of [["svg", "svg"], ["mermaid", "mermaid"]]) {
+    const huge = await request("POST", `/api/boards/${boardId}/cards`, {
+      body: { type, [field]: { source: "x".repeat(40_001) } },
+    });
+    assert.equal(huge.status, 400, `${type}.source 超限要 400`);
+    assert.ok(huge.data.error.includes("40001"), huge.data.error);
+  }
+
+  /* 批量建卡：一次事务落一批；带 c_ id 的重试幂等（skip 而不是 409）；无坐标卡自动摆开 */
+  step("batch-create");
+  const batch = await request("POST", `/api/boards/${boardId}/cards`, {
+    body: {
+      cards: [
+        { id: "c_batch0001", type: "text", title: "批量一" },
+        { id: "c_batch0002", type: "text", title: "批量二" },
+        { type: "text", title: "批量三" },
+      ],
+    },
+  });
+  assert.equal(batch.status, 201, JSON.stringify(batch.data));
+  assert.equal(batch.data.created, 3);
+  const spots = batch.data.cards.map((card) => `${card.x}:${card.y}`);
+  assert.equal(new Set(spots).size, 3, "无坐标卡要自动摆开，不能全叠在 80,80");
+  const retry = await request("POST", `/api/boards/${boardId}/cards`, {
+    body: { cards: [{ id: "c_batch0001", type: "text", title: "批量一" }, { id: "c_batch0002", type: "text", title: "批量二" }] },
+  });
+  assert.equal(retry.data.created, 0, "带 id 原样重试要幂等");
+  assert.equal(retry.data.skipped.length, 2, "重复 id 进 skipped 而不是 409");
+  const forced = await request("POST", `/api/boards/${boardId}/cards`, {
+    body: { cards: [{ id: "c_batch0001", type: "text", title: "强制新建" }], onDuplicate: "create" },
+  });
+  assert.equal(forced.data.created, 1, "onDuplicate=create 要换新 id 再建一张");
+  for (const card of [...batch.data.cards, ...forced.data.cards]) {
+    await request("DELETE", `/api/boards/${boardId}/cards/${card.id}`);
+  }
+
   /* ── 第二波三种卡片包：代码 / 表格 / 数据图 ─────────────────
      每种都跑一遍「建卡 → 改卡 → 非法输入 400 → 导出 md/html → 搜索命中 → 信封」。 */
   step("code-cards");
@@ -4879,6 +4934,13 @@ async function main() {
 
       const mcpTidy = parse(await call("board_layout", { board_id: mcpBoardId, mode: "tidy" }));
       assert.equal(mcpTidy.mode, "tidy");
+
+      // 只调视口：不重排、不动任何卡片坐标（服务端 /state 早就支持，工具层之前没暴露）
+      const vpBefore = parse(await call("board_list", { board_id: mcpBoardId }));
+      const mcpViewport = parse(await call("board_layout", { board_id: mcpBoardId, viewport: { x: -120, y: -90, zoom: 0.17 } }));
+      assert.equal(mcpViewport.viewport.zoom, 0.17, "board_layout 要支持只给 viewport");
+      const vpAfter = parse(await call("board_list", { board_id: mcpBoardId }));
+      assert.equal(vpAfter.cards.length, vpBefore.cards.length, "只调视口不该动卡片");
 
       // 搬家：board_export format=bundle → board_import，agent 也能备份 / 迁移画板
       const mcpBundle = parse(await call("board_export", { board_id: mcpBoardId, format: "bundle" }));

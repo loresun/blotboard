@@ -574,14 +574,15 @@ const TOOLS = [
     name: "board_layout",
     description:
       "摆位。二选一：给 mode 让服务端整理（与用户点顶栏「整理」同一套算法）——tidy 保结构只去乱（默认、日常用）/ " +
-      "flow 按连线拉成执行链 / LR、TB 分层重排 / group 按类型分区 / grid 网格铺开 / " +
+      "flow 按连线拉成执行链 / LR、TB 分层重排 / group 按类型分区 / grid 网格铺开（会覆盖已有坐标）/ " +
       "timeline 按时间一天一列排开（规格卡的日期 → 任务卡同步时刻 → 建卡时间，取不到的进最右「未定时」区）/ " +
       "kanban 按状态分列（任务四态 → 规格里的状态 enum → 卡片类型，取不到的进末列「其他」）/ " +
       "matrix 四象限（整块板选一组二值维度：有任务卡就「重要 × 已开工」，否则规格里前两个 enum/number 字段，" +
       "都没有就「有无上游 × 有无下游」；归不了类的摆右侧「未归类」区）/ " +
       "swimlane 泳道（行 = 卡片类型、列 = 状态，列口径与 kanban 完全一致）/ " +
       "cluster 子图分簇（按连线的连通分量分簇，簇内 dagre 排一次，孤立卡聚成最后一簇）" +
-      "（tidy 之外都会推翻用户布局，动前想清楚）；或给 cards 逐张指定坐标（只动给到的卡，几何之外一概不碰）。" +
+      "（tidy 之外都会推翻用户布局，动前想清楚）；或给 cards 逐张指定坐标（只动给到的卡，几何之外一概不碰）；" +
+      "也可以只给 viewport，把视口移到某张卡 / 某片区域（卡片坐标一概不动）。" +
       "全部模式的机器可读清单在 GET /api/capabilities 的 layouts 段。",
     inputSchema: {
       type: "object",
@@ -607,6 +608,15 @@ const TOOLS = [
           },
           description: "逐张给坐标（与 mode 二选一）",
         },
+        viewport: {
+          type: "object",
+          properties: {
+            x: { type: "number" },
+            y: { type: "number" },
+            zoom: { type: "number" },
+          },
+          description: "只调视口（与 mode / cards 三选一）：不重排、不改任何卡片坐标",
+        },
       },
       required: ["board_id"],
     },
@@ -616,7 +626,13 @@ const TOOLS = [
         const data = await api("PUT", `/api/boards/${id}/state`, { body: { cards: args.cards }, write: true });
         return textResult({ applied: data.applied, total: data.total });
       }
-      if (!args.mode) throw new ToolError("mode 与 cards 至少给一个");
+      // 只调视口：走 /state 的 viewport 分支（服务端 saveBoardState 早就支持，这里之前没暴露）
+      if (args.viewport) {
+        await api("PUT", `/api/boards/${id}/state`, { body: { viewport: args.viewport }, write: true });
+        const board = await api("GET", `/api/boards/${id}`);
+        return textResult({ viewport: board?.board?.viewport ?? args.viewport });
+      }
+      if (!args.mode) throw new ToolError("mode / cards / viewport 至少给一个");
       const data = await api("POST", `/api/boards/${id}/tidy`, { body: { mode: args.mode }, write: true });
       return textResult({ mode: data.mode, moved: data.moved });
     },

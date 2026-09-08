@@ -1,6 +1,6 @@
 /** Excalidraw 卡的服务端归一化（自 lib/board-schema.ts 机械拆入，行为不变）。 */
 import type { ExcalidrawField } from "@/lib/types";
-import { MAX_DIAGRAM_SOURCE, jsonSourceText } from "@/lib/normalize-base";
+import { MAX_DIAGRAM_SOURCE, assertSourceNotTopLevel, jsonSourceText } from "@/lib/normalize-base";
 import { MAX_EXCALIDRAW_SOURCE, MAX_EXCALIDRAW_THUMBNAIL } from "@/lib/constants";
 import { badRequest } from "@/lib/http";
 import { excalidrawText } from "@/lib/excalidraw-text";
@@ -128,12 +128,15 @@ export function normalizeExcalidrawField(input: Partial<ExcalidrawField> = {}): 
 
 export const schema: CardPackSchema = {
   onCreate(card, input) {
+    assertSourceNotTopLevel(input, "excalidraw", "excalidraw");
     card.excalidraw = normalizeExcalidrawField(input.excalidraw);
   },
   onConvert(card, patch) {
+    assertSourceNotTopLevel(patch, "excalidraw", "excalidraw");
     card.excalidraw = normalizeExcalidrawField(patch.excalidraw || card.excalidraw || {});
   },
   onPatch(card, patch) {
+    assertSourceNotTopLevel(patch, "excalidraw", "excalidraw");
     if (patch.excalidraw === undefined) return;
     // 缩略图不再随整板下发（几百 KB base64，卡面改从 /drawing 取图），前端手上没有那一份：
     // 补丁里没带就保留已存的，否则一次普通保存就把它抹了。要清空写 thumbnail: null。

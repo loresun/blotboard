@@ -31,6 +31,7 @@ import { pushActivity } from "./board-activity";
 import { scheduleIssueSync } from "./issue-sync";
 import { CARD_METAS, cardMetaOf, typeLabelOf } from "./card-metas";
 import { isPackEnabled } from "./card-pack-store";
+import { placeMissingCards } from "./auto-place";
 import { findSpec, isEnabled } from "./card-spec-store";
 import {
   ENVELOPE_FORMAT,
@@ -90,11 +91,7 @@ export const ENVELOPE_LIMITS = {
 export type IngestMode = "strict" | "lenient";
 export type DuplicatePolicy = "update" | "skip" | "create";
 
-/** 自动布局：没给坐标的卡按这个网格摆 */
-const GRID_COLS = 3;
-const GRID_GAP_X = 40;
-const GRID_GAP_Y = 32;
-const INSERT_GAP = 200;
+/* 自动摆位规则统一在 lib/auto-place.ts：单卡建卡 / 批量建卡 / 信封导入共用一份 */
 
 export interface ParsedField {
   key: string;
@@ -487,21 +484,6 @@ function externalIndex(board: Board): Map<string, BoardCard> {
   return index;
 }
 
-/** 没给坐标的卡摆成网格；起点让开画板上已有的内容。 */
-function autoLayout(board: Board, cards: { payload: Record<string, unknown> }[]): void {
-  const existing = board.cards || [];
-  const startX = existing.length ? Math.max(...existing.map((card) => card.x + card.w)) + INSERT_GAP : 80;
-  const startY = existing.length ? Math.min(...existing.map((card) => card.y)) : 80;
-  const pending = cards.filter((card) => card.payload.x === undefined || card.payload.y === undefined);
-  if (!pending.length) return;
-  const colWidth = Math.max(...pending.map((card) => Number(card.payload.w) || 320)) + GRID_GAP_X;
-  const rowHeight = Math.max(...pending.map((card) => Number(card.payload.h) || 240)) + GRID_GAP_Y;
-  pending.forEach((card, index) => {
-    card.payload.x = startX + (index % GRID_COLS) * colWidth;
-    card.payload.y = startY + Math.floor(index / GRID_COLS) * rowHeight;
-  });
-}
-
 /**
  * 把一个信封落进画板。
  *
@@ -546,7 +528,7 @@ export function ingestEnvelope(boardId: string, raw: any, actor: BoardActor = "a
     toUpdate.push({ card, targetId: hit.id });
   }
 
-  autoLayout(board, toCreate);
+  placeMissingCards(board, toCreate.map((card) => card.payload));
 
   // 信封是「一次收一批」的入口，跟 whole / paste 同一档：动手前先照相
   const checkpoint = captureCheckpoint(board, "ingest");
