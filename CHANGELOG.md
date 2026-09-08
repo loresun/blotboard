@@ -3,6 +3,35 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.3] - 2026-09-08
+
+### 修复：图片多的画板把界面占死，图片加载期间整个服务变慢
+
+一块 10 张 2048×1152（单张 ≈2 MB）image 卡的板，打开后左栏点不动，期间连刷新
+画板导航都慢。GA-75 只读根因分析（三处证据均带 `文件:行`）定位出三个叠加因素，
+本次一并修掉：
+
+- **image 卡面没有 lazy 加载**：卡面 `<img>` 裸奔，进板即全部挂载，一屏十几张
+  大图同时解码 + paint 全压在 main thread 上——这是「界面被占住」的真因。
+  补上 `loading="lazy"` + `decoding="async"`，与 BookCover / DiagramCard /
+  HtmlCard 同一口径；摊开阅读的 FullView 保持 eager（点开就是要看大图）。
+- **图片预览口同步整读**：`/api/uploads/[id]/preview` 走 `readFileSync` 把整份
+  图读进内存再回（单次 ≈25ms 事件循环空窗），十张并发期间其它请求（含侧栏
+  `/api/boards`）全在排队。新增 `openControlledImage`：校验口径一道不少
+  （id 格式 + realpath + 软链 + 大小上限 + 头部 32 字节真实签名），正文改
+  `createReadStream` 异步吐；`statControlledImage` 顺带带回 `size` 供
+  content-length。导出打包用的 `readControlledImage` 整读保持不变（base64
+  内联需要全字节）。
+- **侧栏全量清单没有协商缓存**：列表随板数线性涨（830+ 块 ≈200 KB），前端
+  每分钟 poll 一次、每次写板后还会重拉。`GET /api/boards` 加 weak ETag
+  （板数 + 最大 updatedAt——写路径一律 bump updatedAt，不会漏报更新），
+  `cache-control: private, no-cache`（每次回源验证，无 staleness 窗口），
+  命中回 304。
+
+回归：tsc 通过、API 冒烟全过；preview 与流式下载路由 sha256 逐字节一致，
+304 / 404 拒绝路径完好；并发 10 张 preview 47ms → 35ms，侧栏二次协商
+304 ≈ 5ms / 0 字节。
+
 ## [1.0.2] - 2026-09-08
 
 ### 修复：任务抽屉把本机 ACP run 当成对端的任务，给出一条死链

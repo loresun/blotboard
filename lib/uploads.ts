@@ -337,7 +337,7 @@ export function uploadSize(id: string): number | null {
  * 这里复检 realpath、软链与大小。拆出来是为了能先算 ETag——
  * 命中协商缓存时就不必把整个文件读进内存了（卡面上的图最大 10 MB）。
  */
-export function statControlledImage(rawId: string): { id: string; mediaType: string; file: string; etag: string } {
+export function statControlledImage(rawId: string): { id: string; mediaType: string; file: string; size: number; etag: string } {
   const id = String(rawId || "");
   if (!CONTROLLED_IMAGE_ID_RE.test(id) || path.basename(id) !== id) throw new Error("受控图片 id 无效");
   const mediaType = uploadFormatOfId(id)?.mediaType || "";
@@ -362,7 +362,7 @@ export function statControlledImage(rawId: string): { id: string; mediaType: str
   const stat = fs.statSync(resolved);
   if (!stat.isFile() || !stat.size || stat.size > IMAGE_MAX_BYTES) throw new Error("受控图片不可预览");
   // 上传文件是一次性写入、永不就地修改的，mtime + 大小足以当版本号
-  return { id, mediaType, file: resolved, etag: `"${stat.mtimeMs.toString(36)}-${stat.size.toString(36)}"` };
+  return { id, mediaType, file: resolved, size: stat.size, etag: `"${stat.mtimeMs.toString(36)}-${stat.size.toString(36)}"` };
 }
 
 /** 受控图片预览：在 statControlledImage 的基础上再复检一次真实图片签名。 */
@@ -371,6 +371,25 @@ export function readControlledImage(rawId: string): { id: string; mediaType: str
   const bytes = fs.readFileSync(found.file);
   if (!signatureMatches(found.mediaType, bytes)) throw new Error("受控图片不可预览");
   return { id: found.id, mediaType: found.mediaType, bytes, etag: found.etag };
+}
+
+/**
+ * 受控图片的流式准备：与 readControlledImage 同一套校验（stat + realpath + 大小上限 + 真实签名），
+ * 但**不把整个文件读进内存**——只读头部 SIGNATURE_PEEK_BYTES 验签名，把路径交给调用方走
+ * createReadStream。一屏十几张 2 MB 图并发进预览口时，readFileSync 的同步整读会一次次把
+ * 事件循环按住；流式后单请求的同步开销只剩头部那一次几十字节的 readSync。
+ */
+export function openControlledImage(rawId: string): { id: string; mediaType: string; file: string; size: number; etag: string } {
+  const found = statControlledImage(rawId);
+  const handle = fs.openSync(found.file, "r");
+  try {
+    const head = Buffer.alloc(SIGNATURE_PEEK_BYTES);
+    const read = fs.readSync(handle, head, 0, SIGNATURE_PEEK_BYTES, 0);
+    if (!signatureMatches(found.mediaType, head.subarray(0, read))) throw new Error("受控图片不可预览");
+  } finally {
+    fs.closeSync(handle);
+  }
+  return found;
 }
 
 export function mediaTypeForId(id: string): string {
