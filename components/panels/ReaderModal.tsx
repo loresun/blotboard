@@ -135,9 +135,12 @@ export function ReaderModal() {
   const setFullscreen = useCallback((next: boolean) => {
     // 副作用放在 setState 外面：updater 必须是纯函数（React 可以重放它），
     // 把 requestFullscreen 写进去就会被重放第二次——而第二次已经不在用户手势里了
+    // 进入演示时回到「适合屏幕」：窗口态里看细节留下的缩放 / 位移不能带进大屏，
+    // 否则按 F 只是把外壳铺满，图仍停在角落或只露出局部，不像 PPT 放映。
+    if (next) reset();
     setFull(next);
     void applyFullscreen(backdropRef.current, next);
-  }, []);
+  }, [reset]);
   const toggleFull = useCallback(() => setFullscreen(!full), [full, setFullscreen]);
 
   /** 翻到序列里的第 target 张（越界就不动：到头停住比绕回第一张更容易知道自己读到哪） */

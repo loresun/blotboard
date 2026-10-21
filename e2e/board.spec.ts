@@ -2821,6 +2821,61 @@ test.describe("第八轮：阅读模式 / 流程排布 / 对齐 / 画板分组",
     await expect(reader).toHaveCount(0);
   });
 
+  test("阅读模式：宽屏按 F 后 SVG 以 PPT 放映比例适合屏幕", async ({ page }) => {
+    await page.setViewportSize({ width: 2560, height: 1440 });
+    await boot(page);
+    await newBoard(page, `E2E-SVG放映-${Date.now() % 100000}`);
+    const boardId = await currentBoardId(page);
+    const headers = { "content-type": "application/json", "x-auth-key": "e2e-token" };
+    const svg = [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640">',
+      '<rect width="1000" height="640" fill="#f7f4ec"/>',
+      '<rect x="40" y="40" width="920" height="560" rx="24" fill="#213449"/>',
+      '<text x="500" y="340" text-anchor="middle" font-size="72" fill="white">大屏放映</text>',
+      "</svg>",
+    ].join("");
+    await page.request.post(`/api/boards/${boardId}/cards`, {
+      headers,
+      data: { type: "svg", title: "宽屏 SVG", svg: { source: svg }, x: 100, y: 100, w: 320, h: 205 },
+    });
+    // 第二张卡让目录在窗口态出现；进入放映后它应让出屏幕，退出时仍恢复。
+    await page.request.post(`/api/boards/${boardId}/cards`, {
+      headers,
+      data: { type: "text", title: "下一页", content: "演示结束", x: 500, y: 100 },
+    });
+    await page.reload();
+
+    await page.locator(".top-btn", { hasText: "阅读" }).click();
+    const reader = page.locator(".reader-modal");
+    const backdrop = page.locator(".modal-backdrop");
+    const image = reader.locator(".diagram-img");
+    await expect(image).toBeVisible();
+    await expect(reader.locator(".reader-outline")).toBeVisible();
+    const windowed = (await image.boundingBox())!;
+
+    // 窗口态里留下的细节缩放不该污染放映；F 会回到适合屏幕的 100%。
+    await page.keyboard.press("-");
+    await page.keyboard.press("-");
+    await expect(reader.locator(".scope-switch button").nth(1)).toHaveText("67%");
+    await page.keyboard.press("f");
+    await expect(backdrop).toHaveClass(/immersive/);
+    await expect(reader.locator(".scope-switch button").nth(1)).toHaveText("100%");
+    await expect(reader.locator(".reader-outline")).not.toBeVisible();
+
+    const full = (await image.boundingBox())!;
+    const viewport = await page.evaluate(() => ({
+      width: document.documentElement.clientWidth,
+      height: document.documentElement.clientHeight,
+    }));
+    expect(full.width).toBeGreaterThan(windowed.width * 1.45);
+    expect(full.width).toBeGreaterThan(viewport.width * 0.75);
+    expect(full.height).toBeGreaterThan(viewport.height * 0.8);
+
+    await page.keyboard.press("f");
+    await expect(backdrop).not.toHaveClass(/immersive/);
+    await expect(reader.locator(".reader-outline")).toBeVisible();
+  });
+
   test("按流程串开：一条链排成一行，顺序就是执行顺序", async ({ page }) => {
     await boot(page);
     await newBoard(page, `E2E-流程-${Date.now() % 100000}`);

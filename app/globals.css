@@ -1825,10 +1825,14 @@ textarea.source-area:focus { outline: none; border-color: var(--accent); box-sha
   --reader-view-h: calc(100vh - 128px);
   --reader-stage-h: calc(100vh - 132px);
 }
-.modal-backdrop.immersive .reader-body { padding: 32px 44px; }
+.modal-backdrop.immersive .reader-body { padding: 12px 20px 20px; }
+.modal-backdrop.immersive .reader-body.zoomable .reader-stage.fixed {
+  width: 100%; height: 100%; min-height: 0;
+}
 .modal-backdrop.immersive .reader-body:not(.zoomable) .reader-stage { max-width: 980px; }
 .modal-backdrop.immersive .reader-text { font-size: 16px; }
-.modal-backdrop.immersive .reader-outline { width: 260px; }
+/* 放映时让内容占满大屏；目录状态保留，退回窗口后仍按用户原来的选择显示。 */
+.modal-backdrop.immersive .reader-outline { display: none; }
 .modal-backdrop.immersive .reader-code-body .code-pre,
 .modal-backdrop.immersive .reader-table-scroll { max-height: calc(100vh - 210px); }
 /* 弹窗自己可聚焦（tabIndex=-1），焦点从嵌入的 iframe 抢回来时落在它身上——
