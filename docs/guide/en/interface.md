@@ -43,6 +43,10 @@ Two tabs you flip between:
 
 Drag the right edge to resize it, double-click to snap back to the default. The leftmost button in the top bar, or the thin strip hugging the edge, collapses it.
 
+Below the board search box, choose **Default order, Modified time, Created time, or Name**, with ascending or descending order. Time sorting starts with the newest first; names use natural ordering (for example, Board2 before Board10). **Groups come first** and parent/child nesting stays intact: only sibling boards are sorted, and ungrouped boards stay last. Default order restores the original sequence. Your choice is saved in this browser and survives reloads without changing the server's stored board order.
+
+**Collapse all / Expand all** folds or opens every group and sub-board branch at once. In the Cards tab, these buttons affect all card-type groups on the current board. Board search keeps matches expanded, so both buttons are disabled until you clear the search.
+
 ## Toolbar: creating cards and searching
 
 The strip floating at the top left of the canvas. The top row is the **create-card** entry (generated from the card pack registry — disable a card kind and its button disappears on the spot), with the third and fourth groups tucked under "More"; then upload, then five toggles:

@@ -12,6 +12,23 @@ export const sidebarEn: Record<keyof typeof sidebarZh, string> = {
   "sidebar.search.clear": "Clear (Esc)",
   "sidebar.search.empty": "No board name or group matches",
 
+  "sidebar.sort.field": "Board sort",
+  "sidebar.sort.default": "Default order",
+  "sidebar.sort.updated": "Modified time",
+  "sidebar.sort.created": "Created time",
+  "sidebar.sort.name": "Name",
+  "sidebar.sort.direction": "Sort direction",
+  "sidebar.sort.asc": "Ascending",
+  "sidebar.sort.desc": "Descending",
+  "sidebar.sort.groupFirst": "Groups first",
+  "sidebar.sort.groupHint": "Keep groups and parent-child hierarchy; sort siblings only. Ungrouped boards stay last.",
+  "sidebar.sort.defaultHint": "Default order keeps the original board order",
+  "sidebar.fold.all": "Collapse all",
+  "sidebar.unfold.all": "Expand all",
+  "sidebar.fold.allHint": "Collapse all groups and sub-board branches",
+  "sidebar.unfold.allHint": "Expand all groups and sub-board branches",
+  "sidebar.fold.searchHint": "Search matches stay expanded. Clear the search to collapse or expand all groups.",
+
   /* ── Board tree ─────────────────────────── */
   "sidebar.board.row.title": "Right-click: copy the agent prompt, move to a group, copy the ID",
   "sidebar.board.unfold": "Show sub-boards",

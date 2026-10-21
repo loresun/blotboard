@@ -17,8 +17,11 @@ import { cardMatches, useBoardStore } from "@/lib/store";
 import { BOARD_CARD_TYPES, type BoardSearchHit, type CardType } from "@/lib/types";
 import { ContextMenu, type MenuItem, type MenuState } from "./ContextMenu";
 import { browserStorageActive, browserWorkspace } from "@/lib/storage-mode";
+import { BOARD_LIST_SORTS, DEFAULT_BOARD_LIST_SORT, parseBoardListSort, sortBoardSiblings, type BoardListSort } from "@/lib/board-list-sort";
+import styles from "./Sidebar.module.css";
 
 type Section = "boards" | "cards";
+const SORT_STORAGE_KEY = "blotboard.sidebar.sort";
 
 type BoardItem = { id: string; name: string; parentId?: string | null; group?: string; counts?: { cards: number; edges: number; tasks?: number; openComments?: number } };
 
@@ -180,6 +183,8 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
   const [resizing, setResizing] = useState(false);
   /** 深链（导航页 / 分享链接）带来的那张卡，还没在列表里定位到之前一直挂着 */
   const [pendingReveal, setPendingReveal] = useState<string | null>(null);
+  /** 手动全部折叠优先于「跟随当前选中卡片」，直到用户选择另一张卡。 */
+  const pausedCardReveal = useRef<string | null>(null);
   const cardListRef = useRef<HTMLDivElement | null>(null);
   const boardListRef = useRef<HTMLDivElement | null>(null);
   /** 「导入画板…」的文件框：菜单项点不出系统文件选择框，得借一个真的 input */
@@ -193,11 +198,27 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
   const firstOpen = useRef(true);
   /** 画板搜索：树过滤即时做，卡片内容命中防抖后问服务端 */
   const [boardQuery, setBoardQuery] = useState("");
+  const [boardSort, setBoardSort] = useState(DEFAULT_BOARD_LIST_SORT);
+  const [sortReady, setSortReady] = useState(false);
   const [deepHits, setDeepHits] = useState<BoardSearchHit[]>([]);
   const [deepLoading, setDeepLoading] = useState(false);
   const boardKeyword = boardQuery.trim();
   const latestKeyword = useRef(boardKeyword);
   latestKeyword.current = boardKeyword;
+
+  useEffect(() => {
+    try {
+      setBoardSort(parseBoardListSort(window.localStorage.getItem(SORT_STORAGE_KEY)));
+    } catch { /* 浏览器禁用存储时仍然可以排序。 */ }
+    setSortReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sortReady) return;
+    try {
+      window.localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(boardSort));
+    } catch { /* 偏好存不下来不影响本次使用。 */ }
+  }, [boardSort, sortReady]);
 
   useEffect(() => {
     if (!boardKeyword) {
@@ -242,7 +263,12 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
    */
   useEffect(() => {
     const target = pendingReveal || selectedCardId;
-    if (!target || section !== "cards") return;
+    if (!target || section !== "cards") {
+      pausedCardReveal.current = null;
+      return;
+    }
+    if (!pendingReveal && pausedCardReveal.current === target) return;
+    pausedCardReveal.current = null;
     const card = (board?.cards || []).find((item) => item.id === target);
     if (!card) {
       // 板都拉下来了还找不到 = 链接里那张卡已经不在了。挂着不清的话，
@@ -525,6 +551,9 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
       if (!byParent.has(parent)) byParent.set(parent, []);
       byParent.get(parent)!.push(item);
     }
+    for (const [parent, siblings] of byParent) {
+      byParent.set(parent, sortBoardSiblings(siblings, boardSort));
+    }
     const groups = new Map<string, typeof boards>();
     for (const item of byParent.get("") || []) {
       const group = item.group || "";
@@ -533,7 +562,7 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
     }
     const names = [...groups.keys()].sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b, "zh")));
     return { byParent, groups, names };
-  }, [shownBoards]);
+  }, [shownBoards, boardSort]);
 
   const allGroups = useMemo(
     () => [...new Set(boards.map((item) => item.group || "").filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh")),
@@ -787,6 +816,28 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
 
   const cardTotal = grouped.reduce((sum, [, list]) => sum + list.length, 0);
 
+  function foldAll(folded: boolean) {
+    // 搜索时命中必须可见，不能让「全部折叠」变成一个看似没有反应的按钮。
+    if (section === "boards" && boardKeyword) return;
+    if (section === "boards") setBoardReveal(null);
+    else {
+      pausedCardReveal.current = folded ? selectedCardId : null;
+      setPendingReveal(null);
+    }
+    setFoldedGroups((previous) => {
+      const next = { ...previous };
+      if (section === "boards") {
+        for (const item of boards) {
+          next[`g:${item.group || ""}`] = folded;
+          next[item.id] = folded;
+        }
+      } else {
+        for (const card of board?.cards || []) next[card.type] = folded;
+      }
+      return next;
+    });
+  }
+
   return (
     <>
       <aside
@@ -834,6 +885,46 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
         ) : null}
 
         {section === "boards" ? (
+          <div className={styles.sorting}>
+            <select
+              className={styles.field}
+              aria-label={t("sidebar.sort.field")}
+              value={boardSort.field}
+              onChange={(event) => {
+                const field = event.target.value as BoardListSort;
+                setBoardSort({ field, direction: field === "name" ? "asc" : "desc" });
+              }}
+            >
+              {BOARD_LIST_SORTS.map((field) => <option key={field} value={field}>{t(`sidebar.sort.${field}`)}</option>)}
+            </select>
+            <select
+              aria-label={t("sidebar.sort.direction")}
+              title={boardSort.field === "default" ? t("sidebar.sort.defaultHint") : t("sidebar.sort.direction")}
+              value={boardSort.direction}
+              disabled={boardSort.field === "default"}
+              onChange={(event) => setBoardSort((previous) => ({ ...previous, direction: event.target.value as "asc" | "desc" }))}
+            >
+              <option value="desc">{t("sidebar.sort.desc")}</option>
+              <option value="asc">{t("sidebar.sort.asc")}</option>
+            </select>
+            <span className={styles.priority} title={t("sidebar.sort.groupHint")}>{t("sidebar.sort.groupFirst")}</span>
+          </div>
+        ) : null}
+
+        <div className={styles.folding}>
+          <button
+            disabled={section === "boards" && Boolean(boardKeyword)}
+            title={t(section === "boards" && boardKeyword ? "sidebar.fold.searchHint" : "sidebar.fold.allHint")}
+            onClick={() => foldAll(true)}
+          >{t("sidebar.fold.all")}</button>
+          <button
+            disabled={section === "boards" && Boolean(boardKeyword)}
+            title={t(section === "boards" && boardKeyword ? "sidebar.fold.searchHint" : "sidebar.unfold.allHint")}
+            onClick={() => foldAll(false)}
+          >{t("sidebar.unfold.all")}</button>
+        </div>
+
+        {section === "boards" ? (
           <div className="board-list" ref={boardListRef}>
             {boardKeyword && !shownBoards.length ? (
               <div className="aside-empty">{t("sidebar.search.empty")}</div>
@@ -848,8 +939,8 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
               const currentGroup = activeTrail.found && group === activeTrail.group;
               return (
                 <div className="board-group" key={key}>
-                  {/* 未分组的板不给标题，省得空分组名占一行 */}
-                  {group || boardTree.names.length > 1 ? (
+                  {/* 单独的未分组默认省略标题；折叠后保留标题，避免无处点开。 */}
+                  {group || boardTree.names.length > 1 || folded ? (
                     <div className="group-head-row">
                       <button
                         className={`card-group-head${currentGroup ? " current" : ""}`}

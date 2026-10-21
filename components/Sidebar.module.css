@@ -1,0 +1,66 @@
+.sorting {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin: 0 10px 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.sorting select {
+  min-width: 0;
+  height: 27px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text-main);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sorting select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.sorting select:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.field { flex: 1; }
+.priority { white-space: nowrap; }
+
+.folding {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  flex: none;
+  margin: 0 10px 4px;
+}
+
+.folding button {
+  border: none;
+  border-radius: 5px;
+  padding: 3px 6px;
+  background: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.folding button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.folding button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.folding button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

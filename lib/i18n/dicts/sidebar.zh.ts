@@ -13,6 +13,23 @@ export const sidebarZh = {
   "sidebar.search.clear": "清除（Esc）",
   "sidebar.search.empty": "没有名字或分组匹配的画板",
 
+  "sidebar.sort.field": "画板排序",
+  "sidebar.sort.default": "默认排序",
+  "sidebar.sort.updated": "修改时间",
+  "sidebar.sort.created": "创建时间",
+  "sidebar.sort.name": "名称",
+  "sidebar.sort.direction": "排序方向",
+  "sidebar.sort.asc": "升序",
+  "sidebar.sort.desc": "降序",
+  "sidebar.sort.groupFirst": "分组优先",
+  "sidebar.sort.groupHint": "保留分组与父子层级，只对同级画板排序；未分组始终在最后",
+  "sidebar.sort.defaultHint": "默认排序保留原有画板顺序",
+  "sidebar.fold.all": "全部折叠",
+  "sidebar.unfold.all": "全部展开",
+  "sidebar.fold.allHint": "折叠所有分组与子画板层级",
+  "sidebar.unfold.allHint": "展开所有分组与子画板层级",
+  "sidebar.fold.searchHint": "搜索时自动展开匹配结果，清除搜索后可批量折叠或展开",
+
   /* ── 画板树 ─────────────────────────────── */
   "sidebar.board.row.title": "右键：复制 Agent 提示词 / 移动到分组 / 复制 ID",
   "sidebar.board.unfold": "展开子画板",
