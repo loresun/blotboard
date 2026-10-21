@@ -21,7 +21,7 @@ export const sidebarEn: Record<keyof typeof sidebarZh, string> = {
   "sidebar.sort.asc": "Ascending",
   "sidebar.sort.desc": "Descending",
   "sidebar.sort.groupFirst": "Groups first",
-  "sidebar.sort.groupHint": "Keep groups and parent-child hierarchy; sort siblings only. Ungrouped boards stay last.",
+  "sidebar.sort.groupHint": "Sort groups and sibling boards together. Group times use the latest creation or modification among all members, including sub-boards. Ungrouped boards stay last.",
   "sidebar.sort.defaultHint": "Default order keeps the original board order",
   "sidebar.fold.all": "Collapse all",
   "sidebar.unfold.all": "Expand all",

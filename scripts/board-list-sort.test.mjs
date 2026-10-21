@@ -6,7 +6,7 @@ import ts from "typescript";
 // 保持 Node 20 支持：不依赖较新 Node 的原生 TypeScript 加载器。
 const source = fs.readFileSync(new URL("../lib/board-list-sort.ts", import.meta.url), "utf8");
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
-const { parseBoardListSort, sortBoardSiblings } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
+const { parseBoardListSort, sortBoardGroups, sortBoardSiblings } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
 
 const boards = [
   { name: "画板10", createdAt: 100, updatedAt: 300 },
@@ -42,4 +42,40 @@ test("saved sort preferences reject malformed and obsolete browser data", () => 
     assert.deepEqual(parseBoardListSort(raw), { field: "default", direction: "desc" });
   }
   assert.deepEqual(parseBoardListSort('{"field":"name","direction":"desc","extra":"ignored"}'), { field: "name", direction: "desc" });
+});
+
+test("group names follow natural ascending and descending order; default restores legacy order", () => {
+  const groups = ["", "Group10", "Group2"];
+  assert.deepEqual(sortBoardGroups(groups, [], { field: "name", direction: "asc" }), ["Group2", "Group10", ""]);
+  assert.deepEqual(sortBoardGroups(groups, [], { field: "name", direction: "desc" }), ["Group10", "Group2", ""]);
+  assert.deepEqual(sortBoardGroups(groups, [], { field: "default", direction: "desc" }), ["Group10", "Group2", ""]);
+  assert.deepEqual(groups, ["", "Group10", "Group2"]);
+});
+
+test("group time includes complete nested branches under their displayed ancestor group", () => {
+  const members = [
+    { id: "grandchild", name: "hidden", parentId: "child", group: "Other", createdAt: 600, updatedAt: 900 },
+    { id: "child", name: "hidden", parentId: "root", group: "Other", createdAt: 500, updatedAt: 800 },
+    { id: "root", name: "Root", group: "Group2", createdAt: 100, updatedAt: 100 },
+    { id: "second", name: "Root", group: "Group10", createdAt: 200, updatedAt: 700 },
+    { id: "ungrouped", name: "Root", group: "", createdAt: 1000, updatedAt: 1000 },
+  ];
+  const original = structuredClone(members);
+  for (const field of ["updated", "created"]) {
+    assert.deepEqual(sortBoardGroups(["", "Group10", "Group2"], members, { field, direction: "desc" }), ["Group2", "Group10", ""]);
+    assert.deepEqual(sortBoardGroups(["", "Group10", "Group2"], members, { field, direction: "asc" }), ["Group10", "Group2", ""]);
+  }
+  assert.deepEqual(members, original);
+});
+
+test("equal group times are deterministic and missing parents or cycles cannot hang sorting", () => {
+  const members = [
+    { id: "a", name: "A", group: "Group10", parentId: "missing", createdAt: 100, updatedAt: 100 },
+    { id: "b", name: "B", group: "Group2", createdAt: 100, updatedAt: 100 },
+    { id: "c", name: "C", group: "Cycle", parentId: "d", createdAt: 1, updatedAt: 1 },
+    { id: "d", name: "D", group: "Cycle", parentId: "c", createdAt: 1, updatedAt: 1 },
+  ];
+  for (const direction of ["asc", "desc"]) {
+    assert.deepEqual(sortBoardGroups(["Group10", "Group2"], members, { field: "updated", direction }), ["Group2", "Group10"]);
+  }
 });

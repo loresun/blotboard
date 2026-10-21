@@ -22,7 +22,7 @@ export const sidebarZh = {
   "sidebar.sort.asc": "升序",
   "sidebar.sort.desc": "降序",
   "sidebar.sort.groupFirst": "分组优先",
-  "sidebar.sort.groupHint": "保留分组与父子层级，只对同级画板排序；未分组始终在最后",
+  "sidebar.sort.groupHint": "分组与同级画板一起排序；分组时间取成员（含子画板）最近一次建板或修改，未分组始终在最后",
   "sidebar.sort.defaultHint": "默认排序保留原有画板顺序",
   "sidebar.fold.all": "全部折叠",
   "sidebar.unfold.all": "全部展开",

@@ -35,10 +35,10 @@ test("左栏按时间、名称排序，保持分组和父子层级，刷新后�
     await expect(direction).toHaveValue("asc");
     await expect.poll(order).toEqual([one.id, two.id, ten.id, childTwo.id, childTen.id, other.id, ungrouped.id]);
     await direction.selectOption("desc");
-    await expect.poll(order).toEqual([ten.id, childTen.id, childTwo.id, two.id, one.id, other.id, ungrouped.id]);
+    await expect.poll(order).toEqual([other.id, ten.id, childTen.id, childTwo.id, two.id, one.id, ungrouped.id]);
 
     await field.selectOption("created");
-    await expect.poll(order).toEqual([one.id, two.id, ten.id, childTwo.id, childTen.id, other.id, ungrouped.id]);
+    await expect.poll(order).toEqual([other.id, one.id, two.id, ten.id, childTwo.id, childTen.id, ungrouped.id]);
     await direction.selectOption("asc");
     await expect.poll(order).toEqual([ten.id, childTen.id, childTwo.id, two.id, one.id, other.id, ungrouped.id]);
 
@@ -84,6 +84,55 @@ test("损坏或不可写的排序偏好不妨碍开板与临时排序", async ({
   await expect(field).toHaveValue("name");
   await expect(page.getByRole("combobox", { name: "排序方向", exact: true })).toHaveValue("asc");
   await expect(page.locator(".board-item.active")).toBeVisible();
+});
+
+test("分组本身跟随名称和时间排序，隐藏子板的修改时间也会更新分组位置", async ({ page }) => {
+  const prefix = `E2E-组序-${Date.now()}`;
+  const ids: string[] = [];
+  async function create(name: string, group: string, parentId?: string) {
+    const response = await page.request.post("/api/boards", { headers: HEADERS, data: { name, group: `${prefix}-${group}`, parentId } });
+    expect(response.ok()).toBeTruthy();
+    const { board } = await response.json();
+    ids.push(board.id);
+    return board.id as string;
+  }
+  try {
+    const ten = await create(`Root-${prefix}-10`, "Group10");
+    const two = await create(`Root-${prefix}-2`, "Group2");
+    const twenty = await create(`Root-${prefix}-20`, "Group20");
+    const child = await create(`Hidden-${prefix}`, "Group10", ten);
+    await page.goto(`/?board=${two}`);
+    await expect(page.locator(".board-item.active")).toHaveAttribute("data-board-id", two);
+    const search = page.getByPlaceholder("搜画板名 / 分组 / 卡片内容");
+    await search.fill(`Root-${prefix}`);
+    const roots = () => page.locator(".board-group .board-item").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-board-id")));
+    const field = page.getByRole("combobox", { name: "画板排序", exact: true });
+    const direction = page.getByRole("combobox", { name: "排序方向", exact: true });
+    await expect.poll(roots).toEqual([ten, two, twenty]);
+    await field.selectOption("name");
+    await expect.poll(roots).toEqual([two, ten, twenty]);
+    await direction.selectOption("desc");
+    await expect.poll(roots).toEqual([twenty, ten, two]);
+    await field.selectOption("created");
+    await expect.poll(roots).toEqual([ten, twenty, two]);
+    await direction.selectOption("asc");
+    await expect.poll(roots).toEqual([two, twenty, ten]);
+    await field.selectOption("updated");
+    await expect.poll(roots).toEqual([ten, twenty, two]);
+    // 新修改让 Group2 到最前；再改不可见的子板，让 Group10 回到最前。
+    expect((await page.request.patch(`/api/boards/${two}`, { headers: HEADERS, data: { name: `Root-${prefix}-2-edited` } })).ok()).toBeTruthy();
+    await page.reload();
+    await search.fill(`Root-${prefix}`);
+    await expect.poll(roots).toEqual([two, ten, twenty]);
+    expect((await page.request.patch(`/api/boards/${child}`, { headers: HEADERS, data: { name: `Hidden-${prefix}-edited` } })).ok()).toBeTruthy();
+    await page.reload();
+    await search.fill(`Root-${prefix}`);
+    await expect.poll(roots).toEqual([ten, two, twenty]);
+    await field.selectOption("default");
+    await expect.poll(roots).toEqual([ten, two, twenty]);
+  } finally {
+    for (const id of ids.reverse()) await page.request.delete(`/api/boards/${id}`, { headers: HEADERS });
+  }
 });
 
 test("英文界面与浏览器库也能排序，最窄侧栏不溢出", async ({ page, context, baseURL }) => {

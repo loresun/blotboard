@@ -43,7 +43,7 @@ Two tabs you flip between:
 
 Drag the right edge to resize it, double-click to snap back to the default. The leftmost button in the top bar, or the thin strip hugging the edge, collapses it.
 
-Below the board search box, choose **Default order, Modified time, Created time, or Name**, with ascending or descending order. Time sorting starts with the newest first; names use natural ordering (for example, Board2 before Board10). **Groups come first** and parent/child nesting stays intact: only sibling boards are sorted, and ungrouped boards stay last. Default order restores the original sequence. Your choice is saved in this browser and survives reloads without changing the server's stored board order.
+Below the board search box, choose **Default order, Modified time, Created time, or Name**, with ascending or descending order. Time sorting starts with the newest first; names use natural ordering (for example, Board2 before Board10). **Groups come first**: both groups and sibling boards follow the selected sort, while parent/child nesting stays intact and ungrouped boards stay last. Groups have no separate timestamps, so creation and modification sorting use the latest corresponding time among all members, including sub-boards. Search uses the complete group's times. Default order restores alphabetical group order and the original sequence within each group. Your choice is saved in this browser and survives reloads without changing the server's stored board order.
 
 **Collapse all / Expand all** folds or opens every group and sub-board branch at once. In the Cards tab, these buttons affect all card-type groups on the current board. Board search keeps matches expanded, so both buttons are disabled until you clear the search.
 

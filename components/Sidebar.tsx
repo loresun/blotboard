@@ -17,7 +17,7 @@ import { cardMatches, useBoardStore } from "@/lib/store";
 import { BOARD_CARD_TYPES, type BoardSearchHit, type CardType } from "@/lib/types";
 import { ContextMenu, type MenuItem, type MenuState } from "./ContextMenu";
 import { browserStorageActive, browserWorkspace } from "@/lib/storage-mode";
-import { BOARD_LIST_SORTS, DEFAULT_BOARD_LIST_SORT, parseBoardListSort, sortBoardSiblings, type BoardListSort } from "@/lib/board-list-sort";
+import { BOARD_LIST_SORTS, DEFAULT_BOARD_LIST_SORT, parseBoardListSort, sortBoardGroups, sortBoardSiblings, type BoardListSort } from "@/lib/board-list-sort";
 import styles from "./Sidebar.module.css";
 
 type Section = "boards" | "cards";
@@ -560,9 +560,9 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
       if (!groups.has(group)) groups.set(group, []);
       groups.get(group)!.push(item);
     }
-    const names = [...groups.keys()].sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b, "zh")));
+    const names = sortBoardGroups([...groups.keys()], boards, boardSort);
     return { byParent, groups, names };
-  }, [shownBoards, boardSort]);
+  }, [shownBoards, boards, boardSort]);
 
   const allGroups = useMemo(
     () => [...new Set(boards.map((item) => item.group || "").filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh")),
