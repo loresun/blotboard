@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from "react";
 import { sceneRev } from "@/lib/excalidraw-scene";
 import { useBoardStore } from "@/lib/store";
+import { useCardImage } from "@/lib/card-image-client";
 import { useT } from "@/lib/i18n/client";
 
 export function SvgCard({ source }: { source: string }) {
@@ -143,6 +144,13 @@ export function ExcalidrawThumb({ source, cardId }: { source: string; cardId: st
   const boardId = useBoardStore((state) => state.boardId);
   // 服务端也画不出来：退回占位，别留一个破图标
   const [broken, setBroken] = useState("");
+  // v= 是源码的哈希：画一改哈希就变、URL 就变，所以那张图可以按 immutable 缓存
+  const url = source.trim() && boardId && broken !== source
+    ? `/api/boards/${encodeURIComponent(boardId)}/cards/${encodeURIComponent(cardId)}/drawing?v=${sceneRev(source)}`
+    : "";
+  /* 屏幕外的卡先不拉图（一块 76 张手绘卡的板，一进来只有十来张在视野里），
+     并且同时最多 3 张在路上、切板即取消 —— 见 lib/card-image-client.ts */
+  const imgRef = useCardImage(url);
 
   if (!source.trim()) return <span className="placeholder">{t("cards.excalidraw.empty")}</span>;
   if (!boardId || broken === source) {
@@ -152,19 +160,14 @@ export function ExcalidrawThumb({ source, cardId }: { source: string; cardId: st
       </div>
     );
   }
-  // v= 是源码的哈希：画一改哈希就变、URL 就变，所以那张图可以按 immutable 缓存
-  const url = `/api/boards/${encodeURIComponent(boardId)}/cards/${encodeURIComponent(cardId)}/drawing?v=${sceneRev(source)}`;
   return (
     <div className="diagram-wrap excalidraw-thumb">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={imgRef}
         className="diagram-img"
-        src={url}
         alt={t("cards.excalidraw.alt")}
         draggable={false}
-        /* 屏幕外的卡先不拉图：一块 76 张手绘卡的板，一进来只有十来张在视野里，
-           其余的等滚过去再拿（大板本来就开着「只渲染可视区」，两者正好对上） */
-        loading="lazy"
         decoding="async"
         onError={() => setBroken(source)}
       />

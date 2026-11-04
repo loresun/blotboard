@@ -9,6 +9,7 @@
  */
 import { useEffect, useState } from "react";
 import { bookCoverUrl } from "@/lib/book-link";
+import { useCardImage } from "@/lib/card-image-client";
 import { TYPE_ICON } from "@/lib/icons";
 import { useT } from "@/lib/i18n/client";
 
@@ -29,6 +30,8 @@ export function BookCover({
   const t = useT();
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [bookId]);
+  // 封面也走卡面图片的闸门（屏幕外不拉 / 限流 / 切板取消），见 lib/card-image-client.ts
+  const imgRef = useCardImage(bookId && !failed ? bookCoverUrl(bookId) : "");
 
   if (!bookId || failed) {
     return (
@@ -41,11 +44,11 @@ export function BookCover({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={imgRef}
       className={className}
-      src={bookCoverUrl(bookId)}
       alt={name}
-      loading="lazy"
       draggable={false}
+      decoding="async"
       onError={() => setFailed(true)}
     />
   );

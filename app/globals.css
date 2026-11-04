@@ -574,6 +574,9 @@ kbd { background: #f0eee7; border: 1px solid var(--border); border-bottom-width:
 .book-link:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 
 .card-img { width: 100%; height: 100%; object-fit: cover; border-radius: 7px; display: block; }
+/* 闸门管着的卡面图（lib/card-image-client.ts）：还没轮到它 / 正在下的时候先别显示，
+   否则没有 src 的那一瞬间浏览器会把 alt 文本铺在卡面上。图一到就摘掉这个类 */
+img.img-gated { visibility: hidden; }
 .img-wrap { flex: 1; min-height: 0; }
 /* 音视频卡：视频铺满卡面，音频是「文件条 + 播放器」两行。
    播放器带 nodrag nopan（见 cards/media/ui.tsx），拖进度条不会变成拖卡片 */
