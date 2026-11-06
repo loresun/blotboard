@@ -7,6 +7,11 @@ test("release includes code and shipped templates, never personal deployment dat
   for (const file of ["data/token", "data/boards/private.json", "data/uploads/a.png", "data/runner-settings.json", "data/checkpoints/a.json", ".env", ".env.production", "ecosystem.config.cjs", "scripts/lint-repo.local.json", ".git/config", ".next/BUILD_ID", ".blotboard-runtime/server-1.json", "private-notes/file.md", "public/excalidraw-assets/font.woff", "docs/../../data/token", "llms.txt", "notes.local.md"]) assert.equal(sourcePathAllowed(file), false, file);
 });
 
+test("release includes reviewed app icons while excluding arbitrary binary assets", () => {
+  for (const file of ["apple-touch-icon.png", "favicon-32.png", "icon-192.png", "icon-512.png", "favicon.ico"]) assert.equal(sourcePathAllowed("public/site-icons/" + file), true, file);
+  for (const file of ["public/site-icons/private.png", "public/site-icons/backup.zip", "public/private-photo.png"]) assert.equal(sourcePathAllowed(file), false, file);
+});
+
 test("release host policy rejects unknown domains and personal network IPs", () => {
   assert.equal(publicExampleHost("docs.example.com"), true);
   assert.equal(publicExampleHost("github.com"), true);

@@ -6,6 +6,8 @@ export function sourcePathAllowed(file) {
   if (/\.(?:log|tgz|pem|key|tsbuildinfo)$/.test(file) || /\.tmp\./.test(file)) return false;
   if (file.startsWith("data/")) return file === "data/.gitkeep" || /^data\/(?:templates|card-specs)\/[^/]+\.json$/.test(file);
   if (file.startsWith("public/excalidraw-assets/")) return false;
+  // Reviewed application artwork only; arbitrary binary files remain excluded.
+  if (/^public\/site-icons\/(?:apple-touch-icon|favicon-32|icon-192|icon-512)\.png$/.test(file) || file === "public/site-icons/favicon.ico") return true;
   if (/^(?:app|bin|cards|components|lib|public|scripts|docs|e2e|landing|packaging)\//.test(file)) {
     // Binary assets require explicit review; never ship arbitrary backups under a code directory.
     return /\.(?:[cm]?js|[cm]?ts|tsx|jsx|json|md|css|html|yml|yaml|sh|svg)$/.test(file) || file === "packaging/npm-placeholder/LICENSE";

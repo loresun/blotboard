@@ -8,7 +8,14 @@ import { localeMetadata } from "@/lib/i18n/metadata";
 import "./globals.css";
 
 export async function generateMetadata() {
-  return localeMetadata("meta.board.title", "meta.board.desc");
+  return {
+    ...(await localeMetadata("meta.board.title", "meta.board.desc")),
+    icons: {
+      icon: [{ url: "/site-icons/icon.svg", type: "image/svg+xml" }, { url: "/site-icons/favicon-32.png", sizes: "32x32", type: "image/png" }],
+      apple: [{ url: "/site-icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    },
+    manifest: "/site-icons/manifest.json",
+  };
 }
 
 export const viewport: Viewport = {
