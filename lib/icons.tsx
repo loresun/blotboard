@@ -32,6 +32,7 @@ import {
   CircleDashed,
   CircleDot,
   CirclePlay,
+  ClipboardCopy,
   ClipboardList,
   Code,
   Columns2,
@@ -207,6 +208,8 @@ export const UI = {
   more: Ellipsis,
   edit: Pencil,
   copy: Copy,
+  /** 复制卡片纯文本/代码内容（区分于 copy 复制整张卡片 JSON） */
+  copyText: ClipboardCopy,
   remove: Trash2,
   add: Plus,
   tidy: WandSparkles,

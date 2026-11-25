@@ -228,6 +228,12 @@ const COMMON_CARD_KEYS = new Set([
   "color", "title", "content", "agentPrompt", "frameId", "reading",
 ]);
 
+/** 卡片几何尺寸持久化边界（无限画布场景允许自由拉大，与前端 CARD_SIZE_LIMITS 上限一致）。 */
+export const CARD_MIN_W = 140;
+export const CARD_MAX_W = 4800;
+export const CARD_MIN_H = 80;
+export const CARD_MAX_H = 6400;
+
 /**
  * 透传铁律的落点：未知 type 的卡片，公共字段照常 clamp / 清洗，
  * **专属字段一律原样透传、只存不洗**。「读板 → 保存 → 再读」必须逐字节保住。
@@ -240,8 +246,8 @@ export function passthroughCard(input: Record<string, any>, type: string): Board
     createdBy: input.createdBy === "agent" ? "agent" : "user",
     x: clampNumber(input.x, -100_000, 100_000, 80),
     y: clampNumber(input.y, -100_000, 100_000, 80),
-    w: clampNumber(input.w, 140, 1600, 300),
-    h: clampNumber(input.h, 80, 2400, 180),
+    w: clampNumber(input.w, CARD_MIN_W, CARD_MAX_W, 300),
+    h: clampNumber(input.h, CARD_MIN_H, CARD_MAX_H, 180),
     z: clampNumber(input.z, 0, 100_000, 1),
     color: (CARD_COLORS.includes(input.color) ? input.color : "slate") as CardColor,
     title: cleanText(input.title, MAX_TITLE, { fallback: "" }),
@@ -327,8 +333,8 @@ export function normalizeCardInput(input: Record<string, any> = {}, options: Nor
       createdBy: input.createdBy === "agent" ? "agent" : "user",
       x: clampNumber(input.x, -100_000, 100_000, 80),
       y: clampNumber(input.y, -100_000, 100_000, 80),
-      w: clampNumber(input.w, 140, 1600, pack.meta.defaultW ?? 300),
-      h: clampNumber(input.h, 80, 2400, pack.meta.defaultH ?? 180),
+      w: clampNumber(input.w, CARD_MIN_W, CARD_MAX_W, pack.meta.defaultW ?? 300),
+      h: clampNumber(input.h, CARD_MIN_H, CARD_MAX_H, pack.meta.defaultH ?? 180),
       z: clampNumber(input.z, 0, 100_000, 1),
       color: (CARD_COLORS.includes(input.color) ? input.color : "slate") as CardColor,
       title: cleanText(input.title, MAX_TITLE, { fallback: "" }),
@@ -366,8 +372,8 @@ export function normalizeCardInput(input: Record<string, any> = {}, options: Nor
   if (patch.agentPrompt !== undefined) card.agentPrompt = cleanText(patch.agentPrompt, MAX_AGENT_PROMPT);
   if (patch.x !== undefined) card.x = clampNumber(patch.x, -100_000, 100_000, card.x);
   if (patch.y !== undefined) card.y = clampNumber(patch.y, -100_000, 100_000, card.y);
-  if (patch.w !== undefined) card.w = clampNumber(patch.w, 140, 1600, card.w);
-  if (patch.h !== undefined) card.h = clampNumber(patch.h, 80, 2400, card.h);
+  if (patch.w !== undefined) card.w = clampNumber(patch.w, CARD_MIN_W, CARD_MAX_W, card.w);
+  if (patch.h !== undefined) card.h = clampNumber(patch.h, CARD_MIN_H, CARD_MAX_H, card.h);
   if (patch.z !== undefined) card.z = clampNumber(patch.z, 0, 100_000, card.z);
   if (patch.color !== undefined && CARD_COLORS.includes(patch.color)) card.color = patch.color;
   // 传 null = 从框里拿出来（与 color 一样是公共字段，不归任何卡片包管）

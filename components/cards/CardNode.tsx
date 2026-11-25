@@ -8,13 +8,15 @@
  * 两个按钮平时半隐（visibility 而不是 display，位置一直占着），
  * 所以标题的可用宽度是恒定的——鼠标移上来时不会因为按钮冒出来而突然多截一截字。
  */
-import { memo, useCallback } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Handle, NodeResizer, Position, type NodeProps } from "@xyflow/react";
 import { CARD_SIZE_LIMITS, COLORS } from "@/lib/constants";
 import { CARD_COLORS, type CardColor } from "@/lib/types";
 import { ICON_SM, UI, specIcon, typeIcon } from "@/lib/icons";
+import { canCopyCardContent, extractCardCopyText } from "@/lib/card-copy-content";
+import { copyText } from "@/lib/copy-text";
 import { useBoardStore } from "@/lib/store";
-import { useCardLabel, useT } from "@/lib/i18n/client";
+import { useCardLabel, useT, tr } from "@/lib/i18n/client";
 
 import type { BoardCard, LiveTaskStatus } from "@/lib/types";
 import { CardBody, type CardAction } from "./CardBody";
@@ -60,6 +62,26 @@ function CardNodeInner({ id, data, selected }: NodeProps & { data: CardNodeData 
   // typeIcon 对未知类型给兜底图标：数据里的 type 本机没有对应卡片包时，壳照常渲染
   const TypeIcon = card.type === "data" ? specIcon(spec?.icon) : typeIcon(card.type);
   const handleAction = useCallback((action: CardAction) => data.onAction(id, action), [data, id]);
+  const copyable = canCopyCardContent(card);
+  const [copiedContent, setCopiedContent] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+  }, []);
+
+  /** 一键复制卡片纯文本/代码内容（非卡片 JSON），并在按钮上给出短暂成功反馈。 */
+  const handleCopyContent = useCallback(async () => {
+    const text = extractCardCopyText(card);
+    if (!text) return;
+    const ok = await copyText(text);
+    const state = useBoardStore.getState();
+    state.showToast(tr(ok ? "canvas.toast.copiedContent" : "canvas.toast.copyContentFailed"));
+    if (ok) {
+      setCopiedContent(true);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopiedContent(false), 1400);
+    }
+  }, [card]);
 
   const className = [
     "card",
@@ -122,6 +144,20 @@ function CardNodeInner({ id, data, selected }: NodeProps & { data: CardNodeData 
             >
               <UI.fit size={13} strokeWidth={2} />
             </button>
+            {copyable ? (
+              <button
+                className={`card-tool nodrag${copiedContent ? " copied" : ""}`}
+                data-act="copy-content"
+                title={copiedContent ? t("cards.node.copiedContent") : t("cards.node.copyContentTitle")}
+                aria-label={t("cards.node.copyContent")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleCopyContent();
+                }}
+              >
+                {copiedContent ? <UI.check size={13} strokeWidth={2.2} /> : <UI.copyText size={13} strokeWidth={2} />}
+              </button>
+            ) : null}
             <button
               className="card-tool nodrag"
               title={t("cards.node.moreTitle")}
@@ -208,6 +244,23 @@ function CardQuickBar({ cardId, card, visible }: { cardId: string; card: BoardCa
       >
         <UI.commentAdd size={14} strokeWidth={2} />
       </button>
+      {canCopyCardContent(card) ? (
+        <button
+          className="nb-btn"
+          title={t("cards.node.copyContentTitle")}
+          aria-label={t("cards.node.copyContent")}
+          data-act="bar-copy-content"
+          onClick={() => {
+            const text = extractCardCopyText(card);
+            if (!text) return;
+            void copyText(text).then((ok) =>
+              useBoardStore.getState().showToast(tr(ok ? "canvas.toast.copiedContent" : "canvas.toast.copyContentFailed")),
+            );
+          }}
+        >
+          <UI.copyText size={14} strokeWidth={2} />
+        </button>
+      ) : null}
       <button
         className="nb-btn"
         title={t("cards.node.barCopyTitle")}

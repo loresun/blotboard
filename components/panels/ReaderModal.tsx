@@ -25,6 +25,9 @@ import { ICON_MD, ICON_SM, UI, typeIcon } from "@/lib/icons";
 import { readingSequence, useBoardStore } from "@/lib/store";
 import { readingChapters } from "@/lib/layout";
 import { downloadCardSvg, svgExportSource } from "@/lib/card-svg-export";
+import { canCopyCardContent, extractCardCopyText } from "@/lib/card-copy-content";
+import { copyText } from "@/lib/copy-text";
+import { tr } from "@/lib/i18n/client";
 import type { BoardCard } from "@/lib/types";
 
 /**
@@ -112,6 +115,9 @@ export function ReaderModal() {
   const [embedded, setEmbedded] = useState(false);
   /** true = 键盘交给那张嵌入页（←/→ 翻 PPT）；false = 归阅读模式（←/→ 翻卡） */
   const [keysToEmbed, setKeysToEmbed] = useState(false);
+  const [copiedContent, setCopiedContent] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wheelZoom = useBoardStore((state) => state.wheelZoom);
   const dragging = useRef<{ x: number; y: number } | null>(null);
   const backdropRef = useRef<HTMLDivElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -202,8 +208,17 @@ export function ReaderModal() {
   useEffect(() => {
     if (open) return;
     setFull(false);
+    setCopiedContent(false);
+    if (copiedTimer.current) {
+      clearTimeout(copiedTimer.current);
+      copiedTimer.current = null;
+    }
     void applyFullscreen(null, false);
   }, [open]);
+
+  useEffect(() => () => {
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+  }, []);
 
   /* ── 嵌入页（iframe）与键盘归属 ──────────────── */
 
@@ -287,7 +302,7 @@ export function ReaderModal() {
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const { x: dx, y: dy } = wheelPixels(event);
-      if (event.metaKey || event.ctrlKey) {
+      if (event.metaKey || event.ctrlKey || wheelZoom) {
         // 以光标为锚点缩放：不然放大时目标会跑出视野，得再拖回来
         const rect = body.getBoundingClientRect();
         const px = event.clientX - rect.left - rect.width / 2;
@@ -306,7 +321,7 @@ export function ReaderModal() {
     };
     body.addEventListener("wheel", onWheel, { passive: false });
     return () => body.removeEventListener("wheel", onWheel);
-  }, [open, zoomable]);
+  }, [open, zoomable, wheelZoom]);
 
   useEffect(() => {
     if (!open) return;
@@ -435,6 +450,28 @@ export function ReaderModal() {
             </div>
           ) : null}
           <span className="foot-spacer" />
+          {canCopyCardContent(card) ? (
+            <button
+              className={`ro-toggle${copiedContent ? " on" : ""}`}
+              data-act="copy-content"
+              title={t("panels.reader.copyContent.title")}
+              onClick={() => {
+                const text = extractCardCopyText(card);
+                if (!text) return;
+                void copyText(text).then((ok) => {
+                  useBoardStore.getState().showToast(tr(ok ? "canvas.toast.copiedContent" : "canvas.toast.copyContentFailed"));
+                  if (ok) {
+                    setCopiedContent(true);
+                    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+                    copiedTimer.current = setTimeout(() => setCopiedContent(false), 1400);
+                  }
+                });
+              }}
+            >
+              {copiedContent ? <UI.check {...ICON_SM} /> : <UI.copyText {...ICON_SM} />}{" "}
+              {copiedContent ? t("panels.reader.copiedContent") : t("panels.reader.copyContent")}
+            </button>
+          ) : null}
           {svgExportSource(card).ok ? (
             <button
               className="ro-toggle"

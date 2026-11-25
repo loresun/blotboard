@@ -197,6 +197,10 @@ export const LS_ALIGN_SNAP = "blotboard_align_snap";
  * 提到手边。嫌它挡眼睛就在工具箱里关掉（关了什么都不少）。
  */
 export const LS_NODE_TOOLBAR = "blotboard_nodebar";
+/** 空白处拖动画布（类似 ComfyUI：卡片内选择、空白处自动平移，按 Shift 框选） */
+export const LS_AUTO_PAN = "blotboard_autopan";
+/** 鼠标滚轮直接缩放画布（无需按住 Ctrl/⌘ 修饰键） */
+export const LS_WHEEL_ZOOM = "blotboard_wheelzoom";
 /**
  * 视图模式：canvas（画布，默认）/ outline（大纲）。
  * 存本地是因为它是「这个人习惯怎么看板」，跟具体哪块板无关——换板不该被重置。
@@ -226,8 +230,10 @@ export const SNAP_GRID = 22;
  *
  * 手柄（`NodeResizer`）与缩放吸附共用这一份：吸附是在手柄算完之后再挪一点点的，
  * 各拿一套数字的话，卡片会被参考线推到手柄本来不允许的宽度上。
+ * 无限画布场景下放宽到 4800 × 6400（与服务端 `lib/board-schema.ts` 上限对齐），
+ * 让大图、长文档与大分组框可以自由拉大。
  */
-export const CARD_SIZE_LIMITS = { minW: 150, maxW: 1200, minH: 90, maxH: 1800 };
+export const CARD_SIZE_LIMITS = { minW: 150, maxW: 4800, minH: 90, maxH: 6400 };
 
 /* ── 卡片导航页 ─────────────────────────────────── */
 /** 一页拉多少张导航卡（服务端上限 400）；不够就点「加载更多」续 */

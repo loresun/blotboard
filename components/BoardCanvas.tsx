@@ -45,6 +45,7 @@ import { SafeNodeToolbar } from "./SafeNodeToolbar";
 import { canvasFitPadding } from "./canvas-fit";
 import { boardKeyBlocked, historyShortcut } from "@/lib/keyboard-shortcuts";
 import { downloadCardSvg, svgExportSource } from "@/lib/card-svg-export";
+import { canCopyCardContent, extractCardCopyText } from "@/lib/card-copy-content";
 import {
   CARD_SIZE_LIMITS,
   COLORS,
@@ -226,6 +227,8 @@ export function BoardCanvas({ onCardAction, onUploadFiles, children }: CanvasHan
   const alignSnap = useBoardStore((state) => state.alignSnap);
   const dragging = useBoardStore((state) => state.dragging);
   const nodeToolbar = useBoardStore((state) => state.nodeToolbar);
+  const canvasAutoPan = useBoardStore((state) => state.canvasAutoPan);
+  const wheelZoom = useBoardStore((state) => state.wheelZoom);
   // 导出 PNG 时要把屏幕外的卡片也画进 DOM，否则截出来的图会缺卡
   const renderAllNodes = useBoardStore((state) => state.renderAllNodes);
   const cullOffscreen = !renderAllNodes && (board?.cards.length || 0) > CULL_THRESHOLD;
@@ -235,6 +238,8 @@ export function BoardCanvas({ onCardAction, onUploadFiles, children }: CanvasHan
   // 按住空格临时切平移（Figma/Miro 的肌肉记忆），松开回到原工具
   const [spaceHeld, setSpaceHeld] = useState(false);
   const panning = tool === "pan" || spaceHeld;
+  // 选择工具下开启「空白处拖动画布」：卡片内部/边缘仍为选择工具，空白区左键拖动自动切抓手平移
+  const autoPan = !panning && canvasAutoPan;
 
   const flow = useReactFlow();
   // React Flow 自己的 store：拖动时要按当前缩放换算吸附半径、按当前视口挑参照卡片
@@ -415,6 +420,20 @@ export function BoardCanvas({ onCardAction, onUploadFiles, children }: CanvasHan
           onSelect: () => state.openReader(cardId),
         },
         { key: "edit", label: tr("canvas.card.edit"), icon: UI.edit, hint: tr("canvas.card.edit.hint"), onSelect: () => state.setEditing(cardId) },
+        {
+          key: "copy-content",
+          label: tr("canvas.card.copyContent"),
+          icon: UI.copyText,
+          disabled: !canCopyCardContent(card),
+          hint: canCopyCardContent(card) ? tr("canvas.card.copyContent.hint") : tr("canvas.card.copyContent.empty"),
+          onSelect: () => {
+            const text = extractCardCopyText(card);
+            if (!text) return;
+            void copyText(text).then((ok) =>
+              state.showToast(tr(ok ? "canvas.toast.copiedContent" : "canvas.toast.copyContentFailed")),
+            );
+          },
+        },
         // 矢量图卡：把原文件取走。放在「编辑」旁边——它同样是「把这张卡的内容拿出来用」，
         // 而不是改这张卡的属性（改色、置顶那一档在下面）。
         ...(() => {
@@ -1431,6 +1450,29 @@ export function BoardCanvas({ onCardAction, onUploadFiles, children }: CanvasHan
             state.refreshBoard().catch((err: Error) => state.showToast(err.message));
           },
         },
+        { key: "sep-canvas-ux", label: "", separator: true },
+        {
+          key: "toggle-autopan",
+          label: tr("canvas.pane.autoPan"),
+          icon: UI.pan,
+          hint: tr(state.canvasAutoPan ? "canvas.pane.modeOn" : "canvas.pane.modeOff"),
+          onSelect: () => {
+            const next = !state.canvasAutoPan;
+            state.toggleCanvasAutoPan();
+            state.showToast(tr(next ? "canvas.toast.autoPanOn" : "canvas.toast.autoPanOff"));
+          },
+        },
+        {
+          key: "toggle-wheelzoom",
+          label: tr("canvas.pane.wheelZoom"),
+          icon: UI.zoomIn,
+          hint: tr(state.wheelZoom ? "canvas.pane.modeOn" : "canvas.pane.modeOff"),
+          onSelect: () => {
+            const next = !state.wheelZoom;
+            state.toggleWheelZoom();
+            state.showToast(tr(next ? "canvas.toast.wheelZoomOn" : "canvas.toast.wheelZoomOff"));
+          },
+        },
       ];
       setMenu({ x: event.clientX, y: event.clientY, items });
     },
@@ -1684,7 +1726,7 @@ export function BoardCanvas({ onCardAction, onUploadFiles, children }: CanvasHan
   return (
     <div
       ref={wrapRef}
-      className={`canvas-wrap tool-${panning ? "pan" : "select"}${dropping ? " dropping" : ""}`}
+      className={`canvas-wrap tool-${panning ? "pan" : "select"}${autoPan ? " auto-pan" : ""}${dropping ? " dropping" : ""}`}
       onDragOver={onDragOver}
       onDragLeave={() => setDropping(false)}
       onDrop={onDrop}
@@ -1713,10 +1755,11 @@ export function BoardCanvas({ onCardAction, onUploadFiles, children }: CanvasHan
         minZoom={ZOOM_MIN}
         maxZoom={ZOOM_MAX}
         zoomOnDoubleClick={false}
-        panOnScroll
-        // 选择模式：左键拖 = 框选，中键/右键拖 = 平移；平移模式反过来
-        selectionOnDrag={!panning}
-        panOnDrag={panning ? [0, 1, 2] : [1, 2]}
+        panOnScroll={!wheelZoom}
+        // 选择模式：默认左键拖空白处 = 框选；开启「空白处拖动画布」后左键拖空白处 = 平移、Shift+拖 = 框选
+        selectionOnDrag={!panning && !autoPan}
+        panOnDrag={panning || autoPan ? [0, 1, 2] : [1, 2]}
+        selectionKeyCode={autoPan ? "Shift" : undefined}
         // spaceHeld owns temporary panning and editor focus rules. React Flow's
         // default Space listener would preventDefault before that handler runs.
         panActivationKeyCode={null}
@@ -1739,7 +1782,7 @@ export function BoardCanvas({ onCardAction, onUploadFiles, children }: CanvasHan
         selectionMode={SelectionMode.Partial}
         selectNodesOnDrag={false}
         multiSelectionKeyCode={["Meta", "Shift", "Control"]}
-        zoomOnScroll={false}
+        zoomOnScroll={wheelZoom}
         zoomOnPinch
         preventScrolling
         // 大板才只渲染可视区：100 张 SVG 卡的板上屏幕里通常只看得到几张，

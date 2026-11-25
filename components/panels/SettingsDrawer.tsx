@@ -27,9 +27,13 @@ export function SettingsDrawer() {
   const snapGrid = useBoardStore((state) => state.snapGrid);
   const alignSnap = useBoardStore((state) => state.alignSnap);
   const nodeBar = useBoardStore((state) => state.nodeToolbar);
+  const canvasAutoPan = useBoardStore((state) => state.canvasAutoPan);
+  const wheelZoom = useBoardStore((state) => state.wheelZoom);
   const toggleSnapGrid = useBoardStore((state) => state.toggleSnapGrid);
   const toggleAlignSnap = useBoardStore((state) => state.toggleAlignSnap);
   const toggleNodeToolbar = useBoardStore((state) => state.toggleNodeToolbar);
+  const toggleCanvasAutoPan = useBoardStore((state) => state.toggleCanvasAutoPan);
+  const toggleWheelZoom = useBoardStore((state) => state.toggleWheelZoom);
   const features = useFeatures();
   const { locale, setLocale } = useLocale();
   const t = useT();
@@ -66,6 +70,20 @@ export function SettingsDrawer() {
       flip: toggleNodeToolbar,
       label: t("settings.canvas.nodebar"),
       desc: t("settings.canvas.nodebar.desc"),
+    },
+    {
+      key: "autopan",
+      on: canvasAutoPan,
+      flip: toggleCanvasAutoPan,
+      label: t("settings.canvas.autopan"),
+      desc: t("settings.canvas.autopan.desc"),
+    },
+    {
+      key: "wheelzoom",
+      on: wheelZoom,
+      flip: toggleWheelZoom,
+      label: t("settings.canvas.wheelzoom"),
+      desc: t("settings.canvas.wheelzoom.desc"),
     },
   ];
 

@@ -614,9 +614,24 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
     [boardTree, foldedGroups, boardKeyword, activeTrail.group, activeTrail.found, touchCompact],
   );
 
+  /**
+   * 仅当画板与分组总行数超过 300 行时启用虚拟滚动裁剪：
+   *  - 常规规模（≤300 行）直接全量渲染，DOM 开销极低，且保持所有画板项在 DOM 中可即时定位与检索；
+   *  - 超大规模工作区（数百至数千块画板）自动切入虚拟窗口，把 DOM 节点稳定控制在可视区附近（<80 行）。
+   */
   const virtualWindow = useMemo(
-    () => computeVirtualWindow(flattened.rows, scrollTop, viewportHeight),
-    [flattened.rows, scrollTop, viewportHeight],
+    () =>
+      flattened.rows.length > 300
+        ? computeVirtualWindow(flattened.rows, scrollTop, viewportHeight)
+        : {
+            startIndex: 0,
+            endIndex: flattened.rows.length,
+            topPadding: 0,
+            bottomPadding: 0,
+            visibleRows: flattened.rows,
+            totalHeight: flattened.totalHeight,
+          },
+    [flattened.rows, flattened.totalHeight, scrollTop, viewportHeight],
   );
 
   const visibleSegments = useMemo(() => {

@@ -3844,8 +3844,8 @@ async function main() {
       // ② 公共字段照常收敛（区间见 lib/board-schema.ts 的 clampNumber 调用）
       if (got.x !== clamp(input.x, -100_000, 100_000)) fail(`${input.id} 的 x 没按 [-100000,100000] clamp：传 ${input.x} 得 ${got.x}`);
       if (got.y !== clamp(input.y, -100_000, 100_000)) fail(`${input.id} 的 y 没按 [-100000,100000] clamp：传 ${input.y} 得 ${got.y}`);
-      if (got.w !== clamp(input.w, 140, 1600)) fail(`${input.id} 的 w 没按 [140,1600] clamp：传 ${input.w} 得 ${got.w}`);
-      if (got.h !== clamp(input.h, 80, 2400)) fail(`${input.id} 的 h 没按 [80,2400] clamp：传 ${input.h} 得 ${got.h}`);
+      if (got.w !== clamp(input.w, 140, 4800)) fail(`${input.id} 的 w 没按 [140,4800] clamp：传 ${input.w} 得 ${got.w}`);
+      if (got.h !== clamp(input.h, 80, 6400)) fail(`${input.id} 的 h 没按 [80,6400] clamp：传 ${input.h} 得 ${got.h}`);
       if (got.title.includes("\u0000") || got.content.includes("\u0000")) {
         fail(`${input.id} 的公共文本字段没剥掉 NUL——那正是让 grep 把整个文件当二进制的字节`);
       }

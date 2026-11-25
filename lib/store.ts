@@ -16,6 +16,7 @@ import {
   BOARDS_REFRESH_MS,
   COMPARE_MAX,
   LS_ALIGN_SNAP,
+  LS_AUTO_PAN,
   LS_COMMENT_PINS,
   LS_FOCUS_MODE,
   LS_LAST_BOARD,
@@ -26,6 +27,7 @@ import {
   LS_TOOL,
   LS_TOOLBOX,
   LS_VIEW_MODE,
+  LS_WHEEL_ZOOM,
   POLL_SUPPRESS_MS,
   SIDEBAR_W_DEFAULT,
   SIDEBAR_W_MAX,
@@ -137,6 +139,10 @@ interface BoardStore {
   alignSnap: boolean;
   /** 选中卡片上方的悬浮工具条（默认开；关了不少任何功能，⋯ 与右键菜单照旧） */
   nodeToolbar: boolean;
+  /** 空白处拖动画布（类似 ComfyUI：卡片内选择/拖动，空白处左键自动平移，按 Shift 框选） */
+  canvasAutoPan: boolean;
+  /** 鼠标滚轮直接缩放画布与阅读器大图（无需按住 Ctrl/⌘） */
+  wheelZoom: boolean;
   refTarget: string | null;
   /** 子画板缩略图缓存：undefined = 没拉过，null = 目标板没了 */
   boardPreviews: Record<string, BoardPreviewData | null>;
@@ -229,6 +235,10 @@ interface BoardStore {
   toggleAlignSnap: () => void;
   /** 悬浮工具条开关（同上） */
   toggleNodeToolbar: () => void;
+  /** 空白处自动平移开关（卡片内选择 + 空白处平移，类 ComfyUI 无限画布交互） */
+  toggleCanvasAutoPan: () => void;
+  /** 滚轮直接缩放开关（免修饰键直接滚轮缩放画布） */
+  toggleWheelZoom: () => void;
   /** 知识库检索结果要追加到哪张资料卡（抽屉互斥会清掉 editingCardId，所以单独记一份） */
   setRefTarget: (cardId: string | null) => void;
   loadBoardPreview: (boardId: string, options?: { force?: boolean }) => Promise<void>;
@@ -453,6 +463,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   snapGrid: false,
   alignSnap: true,
   nodeToolbar: true,
+  canvasAutoPan: false,
+  wheelZoom: false,
   refTarget: null,
   boardPreviews: {},
   checkpoints: null,
@@ -673,6 +685,16 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     const next = !get().nodeToolbar;
     writeLocal(LS_NODE_TOOLBAR, next ? "1" : "0");
     set({ nodeToolbar: next });
+  },
+  toggleCanvasAutoPan: () => {
+    const next = !get().canvasAutoPan;
+    writeLocal(LS_AUTO_PAN, next ? "1" : "0");
+    set({ canvasAutoPan: next });
+  },
+  toggleWheelZoom: () => {
+    const next = !get().wheelZoom;
+    writeLocal(LS_WHEEL_ZOOM, next ? "1" : "0");
+    set({ wheelZoom: next });
   },
   toggleSidebar: () => {
     const next = !get().sidebarCollapsed;
@@ -1636,6 +1658,10 @@ export function hydrateUiPrefs(): void {
     showComments: readLocal(LS_COMMENT_PINS) !== "0",
     // 没存过就是开着：悬浮工具条是快捷层，关掉不少任何功能（⋯ 与右键菜单照旧）
     nodeToolbar: readLocal(LS_NODE_TOOLBAR) !== "0",
+    // 没存过默认关：保留传统左键框选习惯；开启后空白处左键自动平移、卡片内自动选择（按 Shift 框选）
+    canvasAutoPan: readLocal(LS_AUTO_PAN) === "1",
+    // 没存过默认关：保留触控板双指平移习惯；鼠标用户开启后滚轮直接缩放，无需按住 Ctrl/⌘
+    wheelZoom: readLocal(LS_WHEEL_ZOOM) === "1",
   });
 }
 

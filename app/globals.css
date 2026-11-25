@@ -304,6 +304,8 @@ kbd { background: #f0eee7; border: 1px solid var(--border); border-bottom-width:
 .canvas-wrap.tool-pan .react-flow__pane { cursor: grab; }
 .canvas-wrap.tool-pan .react-flow__pane.dragging { cursor: grabbing; }
 .canvas-wrap.tool-select .react-flow__pane { cursor: default; }
+.canvas-wrap.tool-select.auto-pan .react-flow__pane { cursor: grab; }
+.canvas-wrap.tool-select.auto-pan .react-flow__pane.dragging { cursor: grabbing; }
 /* 抓手模式下卡片只跟着画布走：缩放手柄留在那儿的话，一拖就变成改卡片大小 */
 .canvas-wrap.tool-pan .react-flow__resize-control { display: none; }
 .canvas-wrap.tool-pan .react-flow__node { cursor: grab; }
@@ -403,6 +405,7 @@ kbd { background: #f0eee7; border: 1px solid var(--border); border-bottom-width:
 }
 .card:hover .card-tool, .react-flow__node.selected .card-tool { visibility: visible; }
 .card-tool:hover { color: var(--text-main); background: #f2f1ea; }
+.card-tool.copied { color: #16a34a; }
 
 .card-body { padding: 6px 12px 10px; flex: 1; min-height: 0; overflow: hidden; font-size: 12.5px; line-height: 1.62; color: #565b63; display: flex; flex-direction: column; }
 .card.editing .card-body { overflow: auto; }
