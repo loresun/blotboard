@@ -903,7 +903,18 @@ const DOC_JS = `
     button.textContent = '复制';
     button.addEventListener('click', function(){
       var text = pre.innerText.replace(/复制$/, '');
-      if (navigator.clipboard) navigator.clipboard.writeText(text);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(function(){});
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (_) {}
+        ta.remove();
+      }
       button.textContent = '已复制';
       setTimeout(function(){ button.textContent = '复制'; }, 1400);
     });

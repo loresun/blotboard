@@ -343,6 +343,8 @@ export const panelsZh = {
   "panels.reader.last": "已经是最后一张",
   "panels.reader.progress.title": "整块板按从上到下的摆放顺序读",
   "panels.reader.outline": "目录",
+  "panels.reader.downloadSvg": "下载 SVG",
+  "panels.reader.downloadSvg.title": "把这张图的原文件存下来（.svg），可放大阅读或交给设计工具",
   "panels.reader.outline.hide": "收起目录",
   "panels.reader.outline.show": "展开目录（这块板的阅读顺序）",
   "panels.reader.order": "阅读顺序",

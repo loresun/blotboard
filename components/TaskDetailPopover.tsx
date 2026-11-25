@@ -8,6 +8,7 @@ import { ICON_SM, UI, typeIcon } from "@/lib/icons";
 import { taskBackendKind } from "@/lib/features-client";
 import { useCardLabel, useT } from "@/lib/i18n/client";
 import { goalAgentOrigin } from "@/lib/origins";
+import { copyText } from "@/lib/copy-text";
 import { relatedOf, useBoardStore } from "@/lib/store";
 import type { BoardCard } from "@/lib/types";
 
@@ -128,8 +129,8 @@ export function TaskDetailPopover({ target, onClose }: { target: TaskDetailTarge
               <button
                 className="mini-btn"
                 onClick={async () => {
-                  await navigator.clipboard.writeText(taskId);
-                  showToast(t("pages.taskDetail.copied"));
+                  const ok = await copyText(taskId);
+                  showToast(ok ? t("pages.taskDetail.copied") : t("pages.tasks.toast.copyFailed"));
                 }}
               >
                 <UI.copy {...ICON_SM} /> {t("pages.taskDetail.copyTaskId")}

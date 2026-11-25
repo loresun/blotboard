@@ -44,6 +44,7 @@ import { KeyboardHelp } from "./KeyboardHelp";
 import { SafeNodeToolbar } from "./SafeNodeToolbar";
 import { canvasFitPadding } from "./canvas-fit";
 import { boardKeyBlocked, historyShortcut } from "@/lib/keyboard-shortcuts";
+import { downloadCardSvg, svgExportSource } from "@/lib/card-svg-export";
 import {
   CARD_SIZE_LIMITS,
   COLORS,
@@ -368,7 +369,7 @@ export function BoardCanvas({ onCardAction, onUploadFiles, children }: CanvasHan
           icon: UI.copy,
           hint: tr("canvas.bulk.copyIds.hint", { count: ids.length }),
           onSelect: () => {
-            void navigator.clipboard.writeText(ids.join("\n"));
+            void copyText(ids.join("\n"));
             state.showToast(tr("canvas.toast.copiedIds", { count: ids.length }));
           },
         },
@@ -414,6 +415,22 @@ export function BoardCanvas({ onCardAction, onUploadFiles, children }: CanvasHan
           onSelect: () => state.openReader(cardId),
         },
         { key: "edit", label: tr("canvas.card.edit"), icon: UI.edit, hint: tr("canvas.card.edit.hint"), onSelect: () => state.setEditing(cardId) },
+        // 矢量图卡：把原文件取走。放在「编辑」旁边——它同样是「把这张卡的内容拿出来用」，
+        // 而不是改这张卡的属性（改色、置顶那一档在下面）。
+        ...(() => {
+          const svg = svgExportSource(card);
+          if (!svg.ok && svg.reason === "unsupported") return [] as MenuItem[];
+          return [
+            {
+              key: "download-svg",
+              label: tr("canvas.card.downloadSvg"),
+              icon: UI.download,
+              disabled: !svg.ok,
+              hint: svg.ok ? tr("canvas.card.downloadSvg.hint") : tr("canvas.card.downloadSvg.empty"),
+              onSelect: run(() => downloadCardSvg(card)),
+            } satisfies MenuItem,
+          ];
+        })(),
         {
           key: "comment",
           label: tr("canvas.card.comment"),
@@ -549,7 +566,7 @@ export function BoardCanvas({ onCardAction, onUploadFiles, children }: CanvasHan
           label: tr("canvas.card.copyId"),
           icon: UI.copy,
           onSelect: () => {
-            void navigator.clipboard.writeText(cardId);
+            void copyText(cardId);
             state.showToast(tr("canvas.toast.copiedId"));
           },
         },

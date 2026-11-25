@@ -18,20 +18,20 @@ const PNG_BASE64 =
 async function serverBundleWithImage(page: Page): Promise<{ bundle: any; wrapped: any; boardId: string }> {
   const upload = await (
     await page.request.post("/api/uploads", {
-      headers: { "content-type": "image/png", "x-file-name": "e2e-pixel.png", "x-board-web": "1" },
+      headers: { "content-type": "image/png", "x-file-name": "e2e-pixel.png", "x-auth-key": "e2e-token" },
       data: Buffer.from(PNG_BASE64, "base64"),
     })
   ).json();
   const board = (
     await (
       await page.request.post("/api/boards", {
-        headers: { "x-board-web": "1" },
+        headers: { "x-auth-key": "e2e-token" },
         data: { name: `带图片的板 ${Date.now()}`, group: "备份回归" },
       })
     ).json()
   ).board;
   await page.request.post(`/api/boards/${board.id}/cards`, {
-    headers: { "x-board-web": "1" },
+    headers: { "x-auth-key": "e2e-token" },
     data: { type: "image", title: "配图", file: { uploadId: upload.upload.id, name: "e2e-pixel.png" } },
   });
   const wrapped = await (await page.request.get(`/api/boards/export?ids=${board.id}&format=json&children=0`)).json();

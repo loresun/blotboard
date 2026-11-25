@@ -4,7 +4,7 @@
  * 左栏两段：画板列表 + 当前画板的卡片列表（按类型分组）。
  * 两段都支持右键菜单——复制 id 是给 agent 用的高频动作，不该埋在别处。
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api-client";
 import { SIDEBAR_W_DEFAULT } from "@/lib/constants";
 import { ICON_SM, UI, typeIcon } from "@/lib/icons";
@@ -18,16 +18,21 @@ import { BOARD_CARD_TYPES, type BoardSearchHit, type CardType } from "@/lib/type
 import { ContextMenu, type MenuItem, type MenuState } from "./ContextMenu";
 import { browserStorageActive, browserWorkspace } from "@/lib/storage-mode";
 import { BOARD_LIST_SORTS, DEFAULT_BOARD_LIST_SORT, parseBoardListSort, sortBoardGroups, sortBoardSiblings, type BoardListSort } from "@/lib/board-list-sort";
+import {
+  SIDEBAR_BOARD_ROW_HEIGHT,
+  SIDEBAR_DEFAULT_VIEWPORT_HEIGHT,
+  SIDEBAR_GROUP_ROW_HEIGHT,
+  SIDEBAR_GROUP_ROW_HEIGHT_TOUCH,
+  computeVirtualWindow,
+  flattenBoardTree,
+  type VirtualSidebarRow,
+} from "@/lib/sidebar-virtual";
 import styles from "./Sidebar.module.css";
 
 type Section = "boards" | "cards";
 const SORT_STORAGE_KEY = "blotboard.sidebar.sort";
 
 type BoardItem = { id: string; name: string; parentId?: string | null; group?: string; counts?: { cards: number; edges: number; tasks?: number; openComments?: number } };
-
-function countDescendants(byParent: Map<string, BoardItem[]>, id: string): number {
-  return (byParent.get(id) || []).reduce((sum, child) => sum + 1 + countDescendants(byParent, child.id), 0);
-}
 
 /** 搜索时把命中片段标出来；关键词为空时原样返回 */
 function Highlight({ text, keyword }: { text: string; keyword: string }) {
@@ -47,120 +52,93 @@ function Highlight({ text, keyword }: { text: string; keyword: string }) {
   return <>{parts}</>;
 }
 
-// 搜索时全部强制展开：折叠状态不该把命中藏起来
-const NO_FOLDS: Record<string, boolean> = {};
-
-/** 一块板 + 它底下的子画板；缩进就是层级，有子板才给折叠钮 */
-function BoardBranch({
+/** 扁平化后的单行画板节点；缩进表达层级，有子板才给折叠钮 */
+function BoardRow({
   item,
   depth,
-  byParent,
+  hasChildren,
+  isFolded,
   activeId,
   activePath,
-  folded,
   keyword,
   onToggle,
   onOpen,
   onMenu,
-  onRemove,
 }: {
   item: BoardItem;
   depth: number;
-  byParent: Map<string, BoardItem[]>;
+  hasChildren: boolean;
+  isFolded: boolean;
   activeId: string | null;
   /** 当前画板的祖先链：这条路上的板要看得出来「当前那块在我底下」 */
   activePath: Set<string>;
-  folded: Record<string, boolean>;
   keyword: string;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
   /** 收屏幕坐标而不是事件对象：⋯ 按钮要按自身位置弹菜单，没有真事件可传 */
   onMenu: (x: number, y: number, item: BoardItem) => void;
-  onRemove: (id: string, name: string) => void;
 }) {
   const t = useT();
-  const children = byParent.get(item.id) || [];
-  const isFolded = folded[item.id] === true;
   return (
-    <>
-      <div
-        className={`board-item${item.id === activeId ? " active" : ""}${activePath.has(item.id) ? " on-path" : ""}`}
-        data-board-id={item.id}
-        style={{ paddingLeft: 10 + depth * 14 }}
-        onClick={() => onOpen(item.id)}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onMenu(event.clientX, event.clientY, item);
-        }}
-        title={t("sidebar.board.row.title")}
-      >
-        {children.length ? (
-          <button
-            className={`bi-caret${isFolded ? " folded" : ""}`}
-            title={isFolded ? t("sidebar.board.unfold") : t("sidebar.board.fold")}
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggle(item.id);
-            }}
-          >
-            <UI.chevron size={12} strokeWidth={2} />
-          </button>
-        ) : (
-          <span className="bi-caret-space" />
-        )}
-        {/* 名字可能两行都放不下，tooltip always 给全名 */}
-        <span className="bi-name" title={item.name}>
-          <Highlight text={item.name} keyword={keyword} />
-        </span>
-        <span
-          className="bi-meta"
-          title={`${t("sidebar.board.counts", { cards: item.counts?.cards ?? 0, tasks: item.counts?.tasks ?? 0 })}${
-            item.counts?.openComments ? ` · ${t("sidebar.board.counts.comments", { count: item.counts.openComments })}` : ""
-          }`}
-        >
-          {/* 没有任务 / 没有待处理评论就不显示那一段，把宽度让给名字 */}
-          {t("sidebar.board.meta.cards", { count: item.counts?.cards ?? 0 })}
-          {item.counts?.tasks ? t("sidebar.board.meta.tasks", { count: item.counts.tasks }) : ""}
-          {item.counts?.openComments ? (
-            <span className="bi-comments">{t("sidebar.board.meta.comments", { count: item.counts.openComments })}</span>
-          ) : null}
-        </span>
+    <div
+      className={`board-item${item.id === activeId ? " active" : ""}${activePath.has(item.id) ? " on-path" : ""}`}
+      data-board-id={item.id}
+      style={{ paddingLeft: 10 + depth * 14 }}
+      onClick={() => onOpen(item.id)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onMenu(event.clientX, event.clientY, item);
+      }}
+      title={t("sidebar.board.row.title")}
+    >
+      {hasChildren ? (
         <button
-          className="bi-more"
-          title={t("sidebar.board.more")}
+          className={`bi-caret${isFolded ? " folded" : ""}`}
+          title={isFolded ? t("sidebar.board.unfold") : t("sidebar.board.fold")}
           onClick={(event) => {
             event.stopPropagation();
-            const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-            onMenu(rect.left, rect.bottom + 4, item);
+            onToggle(item.id);
           }}
         >
-          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden>
-            <circle cx="3" cy="8" r="1.4" fill="currentColor" />
-            <circle cx="8" cy="8" r="1.4" fill="currentColor" />
-            <circle cx="13" cy="8" r="1.4" fill="currentColor" />
-          </svg>
+          <UI.chevron size={12} strokeWidth={2} />
         </button>
-      </div>
-      {isFolded
-        ? null
-        : children.map((child) => (
-            <BoardBranch
-              key={child.id}
-              item={child}
-              depth={depth + 1}
-              byParent={byParent}
-              activeId={activeId}
-              activePath={activePath}
-              folded={folded}
-              keyword={keyword}
-              onToggle={onToggle}
-              onOpen={onOpen}
-              onMenu={onMenu}
-              onRemove={onRemove}
-            />
-          ))}
-    </>
+      ) : (
+        <span className="bi-caret-space" />
+      )}
+      {/* 名字可能两行都放不下，tooltip always 给全名 */}
+      <span className="bi-name" title={item.name}>
+        <Highlight text={item.name} keyword={keyword} />
+      </span>
+      <span
+        className="bi-meta"
+        title={`${t("sidebar.board.counts", { cards: item.counts?.cards ?? 0, tasks: item.counts?.tasks ?? 0 })}${
+          item.counts?.openComments ? ` · ${t("sidebar.board.counts.comments", { count: item.counts.openComments })}` : ""
+        }`}
+      >
+        {/* 没有任务 / 没有待处理评论就不显示那一段，把宽度让给名字 */}
+        {t("sidebar.board.meta.cards", { count: item.counts?.cards ?? 0 })}
+        {item.counts?.tasks ? t("sidebar.board.meta.tasks", { count: item.counts.tasks }) : ""}
+        {item.counts?.openComments ? (
+          <span className="bi-comments">{t("sidebar.board.meta.comments", { count: item.counts.openComments })}</span>
+        ) : null}
+      </span>
+      <button
+        className="bi-more"
+        title={t("sidebar.board.more")}
+        onClick={(event) => {
+          event.stopPropagation();
+          const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+          onMenu(rect.left, rect.bottom + 4, item);
+        }}
+      >
+        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden>
+          <circle cx="3" cy="8" r="1.4" fill="currentColor" />
+          <circle cx="8" cy="8" r="1.4" fill="currentColor" />
+          <circle cx="13" cy="8" r="1.4" fill="currentColor" />
+        </svg>
+      </button>
+    </div>
   );
 }
 
@@ -191,8 +169,9 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
   const importInput = useRef<HTMLInputElement | null>(null);
   /** 待定位的画板：切板后要把它从折叠里挖出来滚到眼前，滚到了就清空 */
   const [boardReveal, setBoardReveal] = useState<{ id: string; smooth: boolean } | null>(null);
-  /** 当前画板那一行是不是看不见了（滚出可视区 / 被搜索过滤掉）——是就浮一条「回到当前画板」 */
-  const [activeOffscreen, setActiveOffscreen] = useState(false);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(SIDEBAR_DEFAULT_VIEWPORT_HEIGHT);
+  const [touchCompact, setTouchCompact] = useState(false);
   /** 已经给哪块板定过位：板列表每刷新一次就重定位一次的话，会一直跟用户自己的折叠和滚动打架 */
   const revealedFor = useRef<string | null>(null);
   const firstOpen = useRef(true);
@@ -597,6 +576,69 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
     });
   }
 
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(max-width: 820px)");
+    const sync = () => setTouchCompact(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  useLayoutEffect(() => {
+    const root = boardListRef.current;
+    if (!root || section !== "boards") return;
+    const measure = () => {
+      if (root.clientHeight > 0) setViewportHeight(root.clientHeight);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [section, collapsed]);
+
+  const flattened = useMemo(
+    () =>
+      flattenBoardTree({
+        names: boardTree.names,
+        groups: boardTree.groups,
+        byParent: boardTree.byParent,
+        foldedGroups,
+        keyword: boardKeyword,
+        activeGroup: activeTrail.group,
+        activeFound: activeTrail.found,
+        groupRowHeight: touchCompact ? SIDEBAR_GROUP_ROW_HEIGHT_TOUCH : SIDEBAR_GROUP_ROW_HEIGHT,
+        boardRowHeight: SIDEBAR_BOARD_ROW_HEIGHT,
+      }),
+    [boardTree, foldedGroups, boardKeyword, activeTrail.group, activeTrail.found, touchCompact],
+  );
+
+  const virtualWindow = useMemo(
+    () => computeVirtualWindow(flattened.rows, scrollTop, viewportHeight),
+    [flattened.rows, scrollTop, viewportHeight],
+  );
+
+  const visibleSegments = useMemo(() => {
+    const segments: { group: string; rows: VirtualSidebarRow<BoardItem>[] }[] = [];
+    for (const row of virtualWindow.visibleRows) {
+      const prev = segments[segments.length - 1];
+      if (prev && prev.group === row.group) prev.rows.push(row);
+      else segments.push({ group: row.group, rows: [row] });
+    }
+    return segments;
+  }, [virtualWindow.visibleRows]);
+
+  const activeOffscreen = useMemo(() => {
+    if (section !== "boards" || collapsed || !boardId || !activeTrail.found) return false;
+    const rowIdx = flattened.indexByBoardId.get(boardId);
+    if (rowIdx === undefined) return true;
+    const row = flattened.rows[rowIdx];
+    const viewH = boardListRef.current?.clientHeight || viewportHeight;
+    const visiblePx = Math.min(row.offsetTop + row.height, scrollTop + viewH) - Math.max(row.offsetTop, scrollTop);
+    return visiblePx < row.height * 0.5;
+  }, [section, collapsed, boardId, activeTrail.found, flattened, scrollTop, viewportHeight]);
+
   /**
    * 换板之后左栏的焦点跟过去：切回画板段、展开它所在的分组和祖先链、滚到列表中间。
    * 两百多块板的列表里，「现在这块在哪个分组、旁边还有哪几块可以点」不该自己再找一遍。
@@ -617,54 +659,37 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
     setBoardReveal({ id: boardId, smooth });
   }, [boardId, activeTrail]);
 
-  /** 把待定位的那块板滚到可见处；这一轮还没渲染出来就等下一轮（展开是下一次渲染的事） */
+  /** 把待定位的那块板滚到可见处；用扁平坐标直接算偏移，即使目标行尚未进入当前虚拟窗口 */
   useEffect(() => {
     if (!boardReveal || section !== "boards") return;
     const root = boardListRef.current;
-    const node = root?.querySelector<HTMLElement>(`[data-board-id="${CSS.escape(boardReveal.id)}"]`);
-    if (!root || !node) {
+    const rowIdx = flattened.indexByBoardId.get(boardReveal.id);
+    if (!root || rowIdx === undefined) {
       // 搜索把它过滤掉了：等下去也不会出现，先放手，不然它会一直压着后面的定位
       if (boardKeyword) setBoardReveal(null);
       return;
     }
-    // 自己算滚动量而不是 scrollIntoView：后者会连祖先容器一起滚，这里只想动左栏这一条列表
-    const box = node.getBoundingClientRect();
-    const top = root.scrollTop + box.top - root.getBoundingClientRect().top - (root.clientHeight - box.height) / 2;
-    root.scrollTo({ top: Math.max(0, top), behavior: boardReveal.smooth ? "smooth" : "auto" });
+    const row = flattened.rows[rowIdx];
+    const viewH = root.clientHeight || viewportHeight;
+    const maxScroll = Math.max(0, flattened.totalHeight - viewH);
+    const top = Math.max(0, Math.min(row.offsetTop - (viewH - row.height) / 2, maxScroll));
+    root.scrollTo({ top, behavior: boardReveal.smooth ? "smooth" : "auto" });
+    if (!boardReveal.smooth) setScrollTop(top);
     setBoardReveal(null);
-  }, [boardReveal, section, boardKeyword, shownBoards, foldedGroups]);
-
-  /** 当前画板看不见了就浮一条回去的入口：列表越长越需要——滚两屏之后谁还记得自己在哪儿 */
-  useEffect(() => {
-    if (section !== "boards" || collapsed || !boardId || !activeTrail.found) {
-      setActiveOffscreen(false);
-      return;
-    }
-    const root = boardListRef.current;
-    const node = root?.querySelector(`[data-board-id="${CSS.escape(boardId)}"]`);
-    // 行压根不在列表里（搜索过滤掉 / 祖先被折起来了），那也算「看不见当前画板」
-    if (!root || !node) {
-      setActiveOffscreen(true);
-      return;
-    }
-    // 看的是露出比例不是 isIntersecting：后者露一个像素就算「在屏内」，
-    // 而卡在边缘只露半行的当前画板，跟看不见没区别
-    const observer = new IntersectionObserver(([entry]) => setActiveOffscreen(entry.intersectionRatio < 0.5), {
-      root,
-      threshold: [0, 0.5, 1],
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [section, collapsed, boardId, activeTrail, shownBoards, foldedGroups]);
+  }, [boardReveal, section, boardKeyword, flattened, viewportHeight]);
 
   /**
-   * 搜索清掉的那一下：树跳回完整列表，之前那点滚动位置就废了（同一行换了个位置）。
-   * 把当前画板重新拽回眼前，而不是把人扔在列表中间某处。
+   * 搜索变化时：输入关键词把列表顶回开头，清空时重新把当前画板拽回眼前。
    */
   const prevKeyword = useRef(boardKeyword);
   useEffect(() => {
     const had = prevKeyword.current;
     prevKeyword.current = boardKeyword;
+    if (boardKeyword && boardKeyword !== had) {
+      if (boardListRef.current) boardListRef.current.scrollTop = 0;
+      setScrollTop(0);
+      return;
+    }
     if (boardKeyword || !had || !boardId) return;
     unfoldToActive();
     setBoardReveal({ id: boardId, smooth: false });
@@ -925,76 +950,77 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
         </div>
 
         {section === "boards" ? (
-          <div className="board-list" ref={boardListRef}>
+          <div
+            className="board-list"
+            ref={boardListRef}
+            onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+          >
             {boardKeyword && !shownBoards.length ? (
               <div className="aside-empty">{t("sidebar.search.empty")}</div>
             ) : null}
-            {boardTree.names.map((group) => {
-              const roots = boardTree.groups.get(group) || [];
-              const key = `g:${group}`;
-              // 搜索时全部强制展开：折叠状态不该把命中藏起来
-              const folded = boardKeyword ? false : foldedGroups[key] === true;
-              const total = roots.reduce((sum, item) => sum + 1 + countDescendants(boardTree.byParent, item.id), 0);
-              // 当前画板落在哪个分组里：标出来，省得「这块板到底属于哪个项目」还要往上翻
-              const currentGroup = activeTrail.found && group === activeTrail.group;
-              return (
-                <div className="board-group" key={key}>
-                  {/* 单独的未分组默认省略标题；折叠后保留标题，避免无处点开。 */}
-                  {group || boardTree.names.length > 1 || folded ? (
-                    <div className="group-head-row">
-                      <button
-                        className={`card-group-head${currentGroup ? " current" : ""}`}
-                        title={currentGroup ? t("sidebar.group.current.title") : undefined}
-                        onClick={() => setFoldedGroups((prev) => ({ ...prev, [key]: !folded }))}
-                      >
-                        <UI.blocks size={13} strokeWidth={1.9} />
-                        <Highlight text={group || t("sidebar.group.none")} keyword={group ? boardKeyword : ""} />
-                        {currentGroup ? <span className="group-now">{t("sidebar.group.current")}</span> : null}
-                        <span className="aside-count">{total}</span>
-                        <span className={`card-group-caret${folded ? " folded" : ""}`}>
-                          <UI.chevron size={13} strokeWidth={1.9} />
-                        </span>
-                      </button>
-                      {group ? (
+            {virtualWindow.topPadding > 0 ? (
+              <div className="board-list-spacer" style={{ height: virtualWindow.topPadding }} aria-hidden="true" />
+            ) : null}
+            {visibleSegments.map((segment) => (
+              <div className="board-group" key={`seg:${segment.group}:${segment.rows[0]?.key || ""}`}>
+                {segment.rows.map((row) => {
+                  if (row.kind === "group") {
+                    return (
+                      <div className="group-head-row" key={row.key}>
                         <button
-                          className="bi-more"
-                          title={t("sidebar.group.more")}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-                            groupMenu(rect.left, rect.bottom + 4, group, roots);
-                          }}
+                          className={`card-group-head${row.currentGroup ? " current" : ""}`}
+                          title={row.currentGroup ? t("sidebar.group.current.title") : undefined}
+                          onClick={() => setFoldedGroups((prev) => ({ ...prev, [row.key]: !row.folded }))}
                         >
-                          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden>
-                            <circle cx="3" cy="8" r="1.4" fill="currentColor" />
-                            <circle cx="8" cy="8" r="1.4" fill="currentColor" />
-                            <circle cx="13" cy="8" r="1.4" fill="currentColor" />
-                          </svg>
+                          <UI.blocks size={13} strokeWidth={1.9} />
+                          <Highlight text={row.group || t("sidebar.group.none")} keyword={row.group ? boardKeyword : ""} />
+                          {row.currentGroup ? <span className="group-now">{t("sidebar.group.current")}</span> : null}
+                          <span className="aside-count">{row.total}</span>
+                          <span className={`card-group-caret${row.folded ? " folded" : ""}`}>
+                            <UI.chevron size={13} strokeWidth={1.9} />
+                          </span>
                         </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {folded
-                    ? null
-                    : roots.map((item) => (
-                        <BoardBranch
-                          key={item.id}
-                          item={item}
-                          depth={0}
-                          byParent={boardTree.byParent}
-                          activeId={boardId}
-                          activePath={activeTrail.path}
-                          folded={boardKeyword ? NO_FOLDS : foldedGroups}
-                          keyword={boardKeyword}
-                          onToggle={(id) => setFoldedGroups((prev) => ({ ...prev, [id]: !prev[id] }))}
-                          onOpen={open}
-                          onMenu={boardMenu}
-                          onRemove={remove}
-                        />
-                      ))}
-                </div>
-              );
-            })}
+                        {row.group ? (
+                          <button
+                            className="bi-more"
+                            title={t("sidebar.group.more")}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                              groupMenu(rect.left, rect.bottom + 4, row.group, boardTree.groups.get(row.group) || []);
+                            }}
+                          >
+                            <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden>
+                              <circle cx="3" cy="8" r="1.4" fill="currentColor" />
+                              <circle cx="8" cy="8" r="1.4" fill="currentColor" />
+                              <circle cx="13" cy="8" r="1.4" fill="currentColor" />
+                            </svg>
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  }
+                  return (
+                    <BoardRow
+                      key={row.key}
+                      item={row.item}
+                      depth={row.depth}
+                      hasChildren={row.hasChildren}
+                      isFolded={row.folded}
+                      activeId={boardId}
+                      activePath={activeTrail.path}
+                      keyword={boardKeyword}
+                      onToggle={(id) => setFoldedGroups((prev) => ({ ...prev, [id]: !prev[id] }))}
+                      onOpen={open}
+                      onMenu={boardMenu}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+            {virtualWindow.bottomPadding > 0 ? (
+              <div className="board-list-spacer" style={{ height: virtualWindow.bottomPadding }} aria-hidden="true" />
+            ) : null}
             {boardKeyword ? (
               <div className="deep-results">
                 <div className="deep-head">

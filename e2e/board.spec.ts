@@ -3347,7 +3347,7 @@ test.describe("第十轮：HTML 嵌入卡（外部 PPT / 网页）", () => {
 
     // 服务端是最终闸门：绕过前端直接写外域也得 400
     const rejected = await page.request.post(`/api/boards/${boardId}/cards`, {
-      headers: { "x-board-web": "1" },
+      headers: { "x-board-web": "1", origin },
       data: { type: "html", html: { url: "https://evil.example.org/deck.html" } },
     });
     expect(rejected.status()).toBe(400);

@@ -17,7 +17,7 @@ const base = opt("base", "http://127.0.0.1:8567").replace(/\/+$/, "");
 const total = Number(opt("cards", 200));
 const cleanup = args.includes("--cleanup");
 
-const HEADERS = { "content-type": "application/json", "x-board-web": "1" };
+const HEADERS = { "content-type": "application/json", "x-board-web": "1", origin: base };
 
 async function call(method, path, body) {
   const response = await fetch(`${base}${path}`, {

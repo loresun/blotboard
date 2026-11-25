@@ -396,3 +396,113 @@ export function mediaTypeForId(id: string): string {
   return uploadFormatOfId(id)?.mediaType || "application/octet-stream";
 }
 
+/**
+ * 安全的磁盘文件 Web ReadableStream 包装：
+ * 相比直接 `Readable.toWeb(fs.createReadStream(...))`，在客户端中途 abort/cancel
+ * 或底层 fs 流触发 close/error 竞态时，只允许 settle 一次，避免 Node 22+/24+
+ * 抛出 `ERR_INVALID_STATE` uncaughtException，同时确保底层文件句柄立即 destroy。
+ */
+export function openSafeFileWebStream(
+  file: string,
+  options?: { start?: number; end?: number; signal?: AbortSignal },
+): ReadableStream<Uint8Array> {
+  const streamOptions = options?.start === undefined ? {} : { start: options.start, end: options.end };
+  const nodeStream = fs.createReadStream(file, streamOptions);
+  let settled = false;
+  let onAbort: (() => void) | null = null;
+
+  const cleanup = () => {
+    if (onAbort && options?.signal) {
+      options.signal.removeEventListener("abort", onAbort);
+      onAbort = null;
+    }
+    nodeStream.removeAllListeners("data");
+    nodeStream.removeAllListeners("end");
+    nodeStream.removeAllListeners("error");
+    nodeStream.removeAllListeners("close");
+  };
+
+  const destroyStream = () => {
+    if (!nodeStream.destroyed) {
+      try {
+        nodeStream.destroy();
+      } catch {}
+    }
+  };
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      onAbort = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        destroyStream();
+        try {
+          controller.close();
+        } catch {}
+      };
+      if (options?.signal) {
+        if (options.signal.aborted) {
+          onAbort();
+          return;
+        }
+        options.signal.addEventListener("abort", onAbort, { once: true });
+      }
+
+      nodeStream.on("data", (chunk: Buffer | string) => {
+        if (settled) return;
+        const bytes = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+        try {
+          controller.enqueue(new Uint8Array(bytes));
+          if ((controller.desiredSize ?? 1) <= 0) {
+            nodeStream.pause();
+          }
+        } catch {
+          settled = true;
+          cleanup();
+          destroyStream();
+        }
+      });
+
+      nodeStream.on("end", () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        try {
+          controller.close();
+        } catch {}
+      });
+
+      nodeStream.on("error", (err) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        destroyStream();
+        try {
+          controller.error(err);
+        } catch {}
+      });
+
+      nodeStream.on("close", () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        try {
+          controller.close();
+        } catch {}
+      });
+    },
+    pull() {
+      if (!settled && !nodeStream.destroyed) {
+        nodeStream.resume();
+      }
+    },
+    cancel() {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      destroyStream();
+    },
+  });
+}
+

@@ -17,6 +17,15 @@ import path from "node:path";
 import next from "next";
 import { ensureExcalidrawAssets } from "./scripts/sync-excalidraw-assets.mjs";
 import { claimProductionServer } from "./scripts/build-guard.mjs";
+import { attachSafeStreamGuards, isIgnorableStreamError, r6HealthPayload } from "./lib/stream-guards.mjs";
+
+const serverVersion = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(new URL("./package.json", import.meta.url), "utf8")).version || "1.0.0";
+  } catch {
+    return "1.0.0";
+  }
+})();
 
 const dev = process.argv.includes("--dev") || process.env.NODE_ENV === "development";
 const wantedPort = Number(process.env.BLOTBOARD_PORT || 8567);
@@ -214,18 +223,64 @@ async function main() {
   await app.prepare();
 
   const server = http.createServer((req, res) => {
+    const guard = attachSafeStreamGuards(req, res);
     securityHeaders(res);
     if (!allowPublicDirect && !isTrustedClientAddress(req.socket?.remoteAddress)) {
-      res.writeHead(403, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
-      res.end(JSON.stringify({ ok: false, error: "blotboard 只接受本机/可信局域网直连；公网请经本机 SSO 反向代理" }));
+      const body = JSON.stringify({ ok: false, error: "blotboard 只接受本机/可信局域网直连；公网请经本机 SSO 反向代理" });
+      if (guard.isWritable()) {
+        res.writeHead(403, {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "no-store",
+          "content-length": Buffer.byteLength(body),
+        });
+        guard.safeEnd(body);
+      }
       return;
     }
+    const reqPath = (req.url || "/").split("?")[0];
+    if (reqPath === "/healthz" || reqPath === "/health") {
+      const method = (req.method || "GET").toUpperCase();
+      if (method === "GET" || method === "HEAD") {
+        const body = JSON.stringify(r6HealthPayload("blotboard", { port, version: serverVersion }));
+        if (guard.isWritable()) {
+          res.writeHead(200, {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-store",
+            "content-length": Buffer.byteLength(body),
+          });
+          guard.safeEnd(method === "HEAD" ? undefined : body);
+        }
+        return;
+      }
+      if (method === "OPTIONS") {
+        const body = JSON.stringify({ ok: false, error: "Method Not Allowed" });
+        if (guard.isWritable()) {
+          res.writeHead(405, {
+            allow: "GET, HEAD",
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-store",
+            "content-length": Buffer.byteLength(body),
+          });
+          guard.safeEnd(body);
+        }
+        return;
+      }
+    }
     handle(req, res).catch((err) => {
+      if (isIgnorableStreamError(err) || res.destroyed) return;
       console.error("[blotboard] 请求处理失败");
-      if (!res.headersSent) res.writeHead(500, { "content-type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ ok: false, error: "服务内部错误" }));
+      if (!res.headersSent && guard.isWritable()) {
+        res.writeHead(500, { "content-type": "application/json; charset=utf-8" });
+      }
+      guard.safeEnd(JSON.stringify({ ok: false, error: "服务内部错误" }));
     });
   });
+
+  // 反向代理（如 Caddy / Nginx）上游空闲超时通常为 60~120s，而 Node 默认 keepAliveTimeout 只有 5s：
+  // 代理侧会把本服务已经关闭的空闲连接放回池里复用导致偶发连接重置。本服务没有 SSE/长轮询
+  // （任务台是轮询），把空闲复用窗口调到 300s，让上游比代理侧活得久，由代理侧先关连接。
+  server.keepAliveTimeout = 300_000;
+  server.headersTimeout = 301_000;
 
   server.listen(port, hostname, () => {
     console.log(`[blotboard] ${dev ? "dev" : "prod"} 就绪 http://127.0.0.1:${port}（绑定 ${hostname}）`);

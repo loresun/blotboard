@@ -32,6 +32,7 @@ import type { CardAction } from "./cards/CardBody";
 import { api } from "@/lib/api-client";
 import { POLL_AGENT_MS, POLL_FAST_MS, POLL_SLOW_MS } from "@/lib/constants";
 import { parseCardClipboard } from "@/lib/card-clipboard";
+import { copyText } from "@/lib/copy-text";
 import { UPLOAD_ACCEPT, cardTypeForUploadKind, uploadFormatFor } from "@/lib/upload-accept";
 import { taskBackendKind, useFeatures } from "@/lib/features-client";
 import { tr } from "@/lib/i18n/client";
@@ -327,8 +328,8 @@ function BoardAppInner() {
         } else if (action === "detail") {
           openDetail(card);
         } else if (action === "copy-task") {
-          await navigator.clipboard.writeText(card.task?.taskId || "");
-          state.showToast(tr("app.task.idCopied"));
+          const ok = await copyText(card.task?.taskId || "");
+          state.showToast(ok ? tr("app.task.idCopied") : tr("sidebar.copy.failed"));
         } else if (action === "done") {
           await state.patchCard(cardId, { task: { status: "done" } });
         } else if (action === "reopen") {

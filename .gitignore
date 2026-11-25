@@ -7,6 +7,7 @@ data/*
 !data/templates/
 !data/card-specs/
 *.log
+logs/
 .DS_Store
 .env
 .env.*

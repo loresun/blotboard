@@ -28,6 +28,8 @@ const BACKEND_LABEL: Record<TaskBackendKind, string> = {
 
 /** 接口总表是仓库知识（跟着代码走），不随部署变，写死在这儿即可。 */
 const ENDPOINTS: [string, string, string][] = [
+  ["GET", "/healthz", "R6 标准健康探针（返回 `{ok, status, service}`）"],
+  ["GET", "/health", "健康探针别名（返回 `{ok, status, service}`）"],
   ["GET", "/api/health", "免鉴权健康 / 能力摘要（端口、boards 数、token 来源）"],
   ["GET", "/api/capabilities", "机器可读能力清单：卡片包、layouts、信封格式、skillFocus 合法值"],
   ["GET", "/api/boards", "列出所有画板（id / name / 计数），免鉴权"],
@@ -70,6 +72,7 @@ export function renderLlmsTxt(origin: string): string {
 ## 身份
 
 - **服务地址**: ${base}
+- **本机回环地址**: http://127.0.0.1:${PORT}
 - **端口**: ${PORT}（\`BLOTBOARD_PORT\` 改；默认被占会顺延，\`BLOTBOARD_PORT_STRICT=1\` 关掉顺延）
 - **版本**: ${packageJson.version}
 - **框架**: Next.js + React + 自定义 \`server.mjs\`（可信地址闸门在 Next 之前）

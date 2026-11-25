@@ -42,6 +42,7 @@
     "smoke:live": "node scripts/smoke-api.mjs --base http://127.0.0.1:8567",
     "e2e": "playwright test",
     "postinstall": "node scripts/sync-excalidraw-assets.mjs",
+    "test": "node --test scripts/*.test.mjs",
     "test:unit": "node --test scripts/*.test.mjs",
     "release:source": "node scripts/release-source.mjs"
   },

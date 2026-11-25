@@ -1,7 +1,6 @@
 import fs from "node:fs";
-import { Readable } from "node:stream";
 import { fail, notFound, route } from "@/lib/http";
-import { mediaTypeForId, resolveUploadFile } from "@/lib/uploads";
+import { mediaTypeForId, openSafeFileWebStream, resolveUploadFile } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +19,8 @@ function parseRange(header: string | null, size: number): { start: number; end: 
   return { start, end };
 }
 
-const streamOf = (file: string, start?: number, end?: number): ReadableStream<Uint8Array> =>
-  Readable.toWeb(fs.createReadStream(file, start === undefined ? {} : { start, end })) as ReadableStream<Uint8Array>;
+const streamOf = (file: string, start?: number, end?: number, signal?: AbortSignal): ReadableStream<Uint8Array> =>
+  openSafeFileWebStream(file, { start, end, signal });
 
 /**
  * 受控文件下载（image / media / pdf 卡片的正文）。
@@ -66,7 +65,7 @@ export const GET = route(async (request: Request, ctx: Ctx) => {
     if (!range) {
       return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${stat.size}` } });
     }
-    return new Response(streamOf(file, range.start, range.end), {
+    return new Response(streamOf(file, range.start, range.end, request.signal), {
       status: 206,
       headers: {
         ...headers,
@@ -76,7 +75,7 @@ export const GET = route(async (request: Request, ctx: Ctx) => {
     });
   }
 
-  return new Response(streamOf(file), {
+  return new Response(streamOf(file, undefined, undefined, request.signal), {
     status: 200,
     headers: { ...headers, "content-length": String(stat.size) },
   });

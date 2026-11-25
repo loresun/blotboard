@@ -24,6 +24,7 @@ import { applyFullscreen, fullscreenBusy, fullscreenElement, onFullscreenChange 
 import { ICON_MD, ICON_SM, UI, typeIcon } from "@/lib/icons";
 import { readingSequence, useBoardStore } from "@/lib/store";
 import { readingChapters } from "@/lib/layout";
+import { downloadCardSvg, svgExportSource } from "@/lib/card-svg-export";
 import type { BoardCard } from "@/lib/types";
 
 /**
@@ -434,6 +435,18 @@ export function ReaderModal() {
             </div>
           ) : null}
           <span className="foot-spacer" />
+          {svgExportSource(card).ok ? (
+            <button
+              className="ro-toggle"
+              data-act="download-svg"
+              title={t("panels.reader.downloadSvg.title")}
+              onClick={() => {
+                void downloadCardSvg(card).catch((err: Error) => useBoardStore.getState().showToast(err.message));
+              }}
+            >
+              <UI.download {...ICON_SM} /> {t("panels.reader.downloadSvg")}
+            </button>
+          ) : null}
           {total > 1 ? (
             <button
               className={`ro-toggle${outline ? " on" : ""}`}

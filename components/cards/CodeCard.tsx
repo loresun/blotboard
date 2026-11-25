@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { highlightModuleOf } from "@/cards/code/languages";
 import { ICON_SM, UI } from "@/lib/icons";
+import { copyText } from "@/lib/copy-text";
 import { useBoardStore } from "@/lib/store";
 import { useT } from "@/lib/i18n/client";
 
@@ -185,8 +186,8 @@ export function CopyCodeButton({ source }: { source: string }) {
       onClick={async (event) => {
         event.stopPropagation();
         try {
-          if (!navigator.clipboard) throw new Error(t("cards.code.noClipboard"));
-          await navigator.clipboard.writeText(source);
+          const ok = await copyText(source);
+          if (!ok) throw new Error(t("cards.code.noClipboard"));
           setDone(true);
           if (timer.current) clearTimeout(timer.current);
           timer.current = setTimeout(() => setDone(false), 1400);

@@ -28,6 +28,7 @@ import { useCardLabel, useT, tr } from "@/lib/i18n/client";
 import { t as translate } from "@/lib/i18n";
 import { CONTEXT_MODE_LABEL, EDGE_KIND_META, STATUS_META } from "@/lib/constants";
 import { boardOrigin, goalAgentOrigin } from "@/lib/origins";
+import { copyText } from "@/lib/copy-text";
 import { useBoardStore } from "@/lib/store";
 import { BOARD_CARD_TYPES, CONTEXT_MODES, type BoardDetail, type CardType, type ContextMode } from "@/lib/types";
 
@@ -612,8 +613,8 @@ export function AgentDrawer() {
               <button
                 className="mini-btn"
                 onClick={async () => {
-                  await navigator.clipboard.writeText(configText);
-                  useBoardStore.getState().showToast(tr("panels.agent.configCopied"));
+                  const ok = await copyText(configText);
+                  useBoardStore.getState().showToast(ok ? tr("panels.agent.configCopied") : tr("sidebar.copy.failed"));
                 }}
               >
                 <UI.copy {...ICON_SM} /> {t("common.copy")}

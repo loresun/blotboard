@@ -21,12 +21,13 @@ import { CARD_METAS } from "@/lib/card-metas";
 import { useCardLabel, useT, tr } from "@/lib/i18n/client";
 import { ICON_MD, ICON_SM, UI, specIcon, typeIcon } from "@/lib/icons";
 import { useBoardStore } from "@/lib/store";
+import { copyText } from "@/lib/copy-text";
 
 type Tab = "library" | "ingest";
 
 async function copy(text: string, hint: string) {
-  await navigator.clipboard.writeText(text);
-  useBoardStore.getState().showToast(hint);
+  const ok = await copyText(text);
+  useBoardStore.getState().showToast(ok ? hint : tr("sidebar.copy.failed"));
 }
 
 /** 新卡片落在视口中心附近（跟工具条建卡一个手感） */

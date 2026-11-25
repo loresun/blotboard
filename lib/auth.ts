@@ -30,15 +30,69 @@ export const WRITE_AUTH_HINT =
   "浏览器同源请求改带 x-board-web: 1。" +
   "生效源是哪个：GET /api/health 的 tokenSource 或 /api/capabilities 的 auth 段；完整用法：GET /api/skill。";
 
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true; // 非浏览器 / same-origin GET 不带 Origin
-  const host = request.headers.get("host");
+function firstHeaderValue(value: string | null): string {
+  return value === null ? "" : value.split(",")[0]?.trim() || "";
+}
+
+function parseHostHeader(hostRaw: string | null): { raw: string; hostname: string; port: string } | null {
+  const cleaned = firstHeaderValue(hostRaw).toLowerCase();
+  if (!cleaned || /[\s,@/\\]/.test(cleaned)) return null;
   try {
-    return new URL(origin).host === host;
+    const parsed = new URL(`http://${cleaned}`);
+    if (!parsed.hostname) return null;
+    return {
+      raw: cleaned,
+      hostname: parsed.hostname.toLowerCase(),
+      port: parsed.port || "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function urlMatchesHost(urlStr: string, hostInfo: { raw: string; hostname: string; port: string }): boolean {
+  if (!urlStr || !hostInfo) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(urlStr);
   } catch {
     return false;
   }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  if (parsed.username || parsed.password) return false;
+  const urlPort = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
+  if (parsed.host.toLowerCase() === hostInfo.raw) return true;
+  if (parsed.hostname.toLowerCase() !== hostInfo.hostname) return false;
+  const effectiveHostPort = hostInfo.port || (parsed.protocol === "https:" ? "443" : "80");
+  return urlPort === effectiveHostPort;
+}
+
+/**
+ * 严格同源校验：
+ *  - 存在 Origin：必须非 "null" 且 protocol/host/port 严格匹配 Host；
+ *  - 缺失 Origin：绝对不可直接放行，必须同时满足 Sec-Fetch-Site === "same-origin"
+ *    且 Referer 的 host 严格匹配 Host（覆盖浏览器同源 GET，拦截无 Origin 伪造请求）。
+ */
+export function isStrictSameOrigin(headers: Headers): boolean {
+  const hostInfo = parseHostHeader(headers.get("host"));
+  if (!hostInfo) return false;
+
+  const originRaw = (headers.get("origin") || "").trim();
+  if (originRaw) {
+    if (originRaw.toLowerCase() === "null") return false;
+    return urlMatchesHost(originRaw, hostInfo);
+  }
+
+  const secFetchSite = firstHeaderValue(headers.get("sec-fetch-site")).toLowerCase();
+  if (secFetchSite !== "same-origin") return false;
+
+  const refererRaw = (headers.get("referer") || "").trim();
+  if (!refererRaw) return false;
+  return urlMatchesHost(refererRaw, hostInfo);
+}
+
+function sameOrigin(request: Request): boolean {
+  return isStrictSameOrigin(request.headers);
 }
 
 /**
@@ -46,16 +100,17 @@ function sameOrigin(request: Request): boolean {
  *
  * `a === b` 在第一个不同的字节上就返回，逐字节的耗时差是可测的——攻击者拿一个
  * 能连到这个端口的位置反复试，理论上能一个字节一个字节地把 token 猜出来。
- * 画板的鉴权在同一台机器 / 同一个局域网里，网络抖动远大于这点时间差，
- * 实战难度很高；但换成 timingSafeEqual 的代价是零，没有理由把这条留在门上。
- *
- * 长度不同直接 false：timingSafeEqual 长度不等会抛，而「长度」本身不是秘密
- * （token 是固定的 48 位十六进制）。
+ * 长度不同或空串直接 false：timingSafeEqual 长度不等会抛，这里做一次自比对后返回 false。
  */
-function tokenEquals(candidate: string, token: string): boolean {
+export function timingSafeTokenEqual(candidate: string, token: string): boolean {
+  if (typeof candidate !== "string" || typeof token !== "string") return false;
+  if (candidate.length === 0 || token.length === 0) return false;
   const a = Buffer.from(candidate, "utf8");
   const b = Buffer.from(token, "utf8");
-  if (a.length !== b.length) return false;
+  if (a.length !== b.length) {
+    crypto.timingSafeEqual(a, a);
+    return false;
+  }
   return crypto.timingSafeEqual(a, b);
 }
 
@@ -63,7 +118,7 @@ export function isAgentRequest(request: Request): boolean {
   const key = request.headers.get("x-auth-key");
   if (!key) return false;
   const token = tryReadInternalToken();
-  return Boolean(token) && tokenEquals(key, token as string);
+  return Boolean(token) && timingSafeTokenEqual(key, token as string);
 }
 
 export function canWrite(request: Request): boolean {

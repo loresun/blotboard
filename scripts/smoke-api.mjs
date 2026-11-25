@@ -277,6 +277,54 @@ async function main() {
   });
   assert.equal(badToken.status, 403);
 
+  // 安全回归：无 Origin 且无 x-auth-key，仅带 x-board-web: 1 / x-goal-agent-web: 1 的写删请求必须 403
+  const missingOriginWeb = await request("POST", `/api/boards/${boardId}/cards`, {
+    headers: { "content-type": "application/json", "x-board-web": "1" },
+    body: { type: "text", title: "无 Origin 伪造写" },
+  });
+  assert.equal(missingOriginWeb.status, 403, "缺失 Origin 仅带 x-board-web: 1 必须返回 403");
+
+  const missingOriginDelete = await request("DELETE", `/api/boards/${boardId}`, {
+    headers: { "x-board-web": "1" },
+  });
+  assert.equal(missingOriginDelete.status, 403, "缺失 Origin 仅带 x-board-web: 1 删画板必须返回 403");
+
+  const missingOriginLegacy = await request("POST", `/api/boards/${boardId}/cards`, {
+    headers: { "content-type": "application/json", "x-goal-agent-web": "1" },
+    body: { type: "text", title: "无 Origin 老头伪造" },
+  });
+  assert.equal(missingOriginLegacy.status, 403, "缺失 Origin 仅带 x-goal-agent-web: 1 必须返回 403");
+
+  const missingRefererSecFetch = await request("GET", "/api/runner-settings", {
+    headers: { "sec-fetch-site": "same-origin", "x-board-web": "1" },
+  });
+  assert.equal(missingRefererSecFetch.status, 403, "有 Sec-Fetch-Site 但无 Referer 必须返回 403");
+
+  const sameOriginGetRunner = await request("GET", "/api/runner-settings", {
+    headers: { "sec-fetch-site": "same-origin", referer: `${origin}/tasks`, "x-board-web": "1" },
+  });
+  assert.equal(sameOriginGetRunner.status, 200, "Sec-Fetch-Site=same-origin 且 Referer 同源应放行浏览器 GET");
+
+  // R6 路由检查：/healthz、/health、/llms.txt 与 OPTIONS CORS
+  for (const probePath of ["/healthz", "/health"]) {
+    const r = await request("GET", probePath, { headers: {} });
+    assert.equal(r.status, 200, `${probePath} 必须返回 200`);
+    assert.equal(r.data.ok, true);
+    assert.equal(r.data.status, "ok");
+    assert.equal(r.data.service, "blotboard");
+  }
+  const corsCheck = await fetch(`${base}/healthz`, {
+    method: "OPTIONS",
+    headers: { origin: "https://evil.example.org", "access-control-request-method": "POST" },
+  });
+  assert.notEqual(corsCheck.headers.get("access-control-allow-origin"), "*");
+  assert.notEqual(corsCheck.headers.get("access-control-allow-origin"), "https://evil.example.org");
+  const llmsRes = await fetch(`${base}/llms.txt`);
+  assert.equal(llmsRes.status, 200);
+  const llmsBody = await llmsRes.text();
+  assert.ok(!llmsBody.trimStart().toLowerCase().startsWith("<html"), "/llms.txt 不能回退 HTML");
+  assert.ok(llmsBody.includes("127.0.0.1"), "/llms.txt 必须包含 127.0.0.1");
+
   // 老浏览器头（x-goal-agent-web）保持兼容，老脚本/老冒烟不用改
   const legacyHeaderCard = await request("POST", `/api/boards/${boardId}/cards`, {
     headers: LEGACY_BROWSER,
@@ -952,6 +1000,29 @@ async function main() {
   const badRange = await fetch(`${base}/api/boards/uploads/${video.id}`, { headers: { range: "bytes=99999-" } });
   assert.equal(badRange.status, 416, "要不出的区间要 416 并带总长，否则播放器会一直重试");
   assert.equal(badRange.headers.get("content-range"), `bytes */${mp4Bytes.length}`);
+
+  // 流式中断回归：客户端中途 abort 预览/附件下载，服务进程不能因 ERR_INVALID_STATE / EPIPE 崩溃
+  const abortPreview = new AbortController();
+  try {
+    const res = await fetch(`${base}/api/uploads/${pngId}/preview`, { signal: abortPreview.signal });
+    await res.body?.cancel();
+    abortPreview.abort();
+  } catch {
+    /* abort expected */
+  }
+  const abortMedia = new AbortController();
+  try {
+    const res = await fetch(`${base}/api/boards/uploads/${video.id}`, { signal: abortMedia.signal });
+    const reader = res.body?.getReader();
+    if (reader) {
+      await reader.read();
+      await reader.cancel();
+    }
+    abortMedia.abort();
+  } catch {
+    /* abort expected */
+  }
+  assert.equal((await request("GET", "/healthz", { headers: {} })).status, 200, "流中止后服务应保持存活");
 
   // Markdown 导出：公共行给文件名，包给「是音频还是视频」
   const mdWithMedia = await (await fetch(`${base}/api/boards/${boardId}/export?format=md`)).text();

@@ -18,6 +18,7 @@ import { useCardLabel, useT, tr } from "@/lib/i18n/client";
 import type { DictKey } from "@/lib/i18n";
 import { taskBackendKind, useFeatures } from "@/lib/features-client";
 import { goalAgentOrigin } from "@/lib/origins";
+import { copyText } from "@/lib/copy-text";
 import { relatedOf, useBoardStore } from "@/lib/store";
 import type { BoardCard } from "@/lib/types";
 
@@ -320,8 +321,8 @@ export function TaskDrawer() {
                       <button
                         className="mini-btn primary"
                         onClick={async () => {
-                          await navigator.clipboard.writeText(live.prompt!);
-                          useBoardStore.getState().showToast(tr("panels.task.promptCopied"));
+                          const ok = await copyText(live.prompt!);
+                          useBoardStore.getState().showToast(ok ? tr("panels.task.promptCopied") : tr("sidebar.copy.failed"));
                         }}
                       >
                         <UI.copy {...ICON_SM} /> {t("panels.task.copyPrompt")}
@@ -348,8 +349,8 @@ export function TaskDrawer() {
                     <button
                       className="mini-btn"
                       onClick={async () => {
-                        await navigator.clipboard.writeText(taskId);
-                        useBoardStore.getState().showToast(tr("panels.task.idCopied"));
+                        const ok = await copyText(taskId);
+                        useBoardStore.getState().showToast(ok ? tr("panels.task.idCopied") : tr("sidebar.copy.failed"));
                       }}
                     >
                       <UI.copy {...ICON_SM} /> {t("panels.task.copyId")}

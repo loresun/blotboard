@@ -358,3 +358,66 @@ test("layout rejects unknown modes and does not checkpoint or rewrite a repeated
   expect(second).toMatchObject({ moved: 1, changed: 0 });
   expect(storage.requireBoard(board.id)).toEqual(first);
 });
+
+test("strict same-origin auth blocks forged x-board-web without Origin", async () => {
+  const auth = await import("../lib/auth");
+  const base = "http://127.0.0.1:8567";
+
+  const cases: Array<{ label: string; headers: Record<string, string>; expectedSameOrigin: boolean }> = [
+    { label: "missing Origin and Sec-Fetch-Site", headers: { host: "127.0.0.1:8567", "x-board-web": "1" }, expectedSameOrigin: false },
+    { label: "Sec-Fetch-Site same-origin without Referer", headers: { host: "127.0.0.1:8567", "sec-fetch-site": "same-origin", "x-board-web": "1" }, expectedSameOrigin: false },
+    { label: "Sec-Fetch-Site cross-site with same Referer", headers: { host: "127.0.0.1:8567", "sec-fetch-site": "cross-site", referer: `${base}/`, "x-board-web": "1" }, expectedSameOrigin: false },
+    { label: "Sec-Fetch-Site same-origin with foreign Referer", headers: { host: "127.0.0.1:8567", "sec-fetch-site": "same-origin", referer: "https://evil.example.org/", "x-board-web": "1" }, expectedSameOrigin: false },
+    { label: "Sec-Fetch-Site same-origin with matching Referer", headers: { host: "127.0.0.1:8567", "sec-fetch-site": "same-origin", referer: `${base}/tasks`, "x-board-web": "1" }, expectedSameOrigin: true },
+    { label: "Origin null", headers: { host: "127.0.0.1:8567", origin: "null", "x-board-web": "1" }, expectedSameOrigin: false },
+    { label: "Origin mismatched port", headers: { host: "127.0.0.1:8567", origin: "http://127.0.0.1:9999", "x-board-web": "1" }, expectedSameOrigin: false },
+    { label: "Origin matching Host", headers: { host: "127.0.0.1:8567", origin: base, "x-board-web": "1" }, expectedSameOrigin: true },
+  ];
+
+  for (const item of cases) {
+    const req = new Request(`${base}/api/boards`, { method: "POST", headers: item.headers });
+    expect(auth.isStrictSameOrigin(req.headers), item.label).toBe(item.expectedSameOrigin);
+    expect(auth.canWrite(req), `canWrite: ${item.label}`).toBe(item.expectedSameOrigin);
+  }
+
+  expect(auth.timingSafeTokenEqual("abc", "abc")).toBe(true);
+  expect(auth.timingSafeTokenEqual("abc", "abd")).toBe(false);
+  expect(auth.timingSafeTokenEqual("abc", "abcd")).toBe(false);
+  expect(auth.timingSafeTokenEqual("", "")).toBe(false);
+
+  // Missing Origin + x-board-web: 1 without x-auth-key must throw 403
+  expect(() =>
+    auth.assertCanWrite(new Request(`${base}/api/boards`, { method: "POST", headers: { host: "127.0.0.1:8567", "x-board-web": "1" } })),
+  ).toThrow(/403|写操作/);
+
+  // Invalid x-auth-key rejects even when Origin + x-board-web match
+  expect(
+    auth.canWrite(new Request(`${base}/api/boards`, { method: "POST", headers: { host: "127.0.0.1:8567", origin: base, "x-board-web": "1", "x-auth-key": "wrong" } })),
+  ).toBe(false);
+
+  // Valid x-auth-key passes without Origin
+  expect(
+    auth.canWrite(new Request(`${base}/api/boards`, { method: "POST", headers: { host: "127.0.0.1:8567", "x-auth-key": "security-test-token" } })),
+  ).toBe(true);
+});
+
+test("safe file stream wrapper handles mid-stream cancel and abort without ERR_INVALID_STATE", async () => {
+  const { openSafeFileWebStream } = await import("../lib/uploads");
+  const fixture = path.join(root, "stream-fixture.bin");
+  fs.writeFileSync(fixture, Buffer.alloc(256 * 1024, 0x61));
+
+  // Case 1: cancel reader after first chunk
+  const stream1 = openSafeFileWebStream(fixture);
+  const reader1 = stream1.getReader();
+  const first = await reader1.read();
+  expect(first.done).toBe(false);
+  await expect(reader1.cancel("client closed")).resolves.toBeUndefined();
+
+  // Case 2: AbortController abort fires while streaming
+  const ac = new AbortController();
+  const stream2 = openSafeFileWebStream(fixture, { signal: ac.signal });
+  const reader2 = stream2.getReader();
+  await reader2.read();
+  ac.abort();
+  await expect(reader2.read()).resolves.toMatchObject({ done: true });
+});

@@ -15,6 +15,7 @@ import { api } from "@/lib/api-client";
 import { useCardLabel, useT, tr } from "@/lib/i18n/client";
 import { ICON_MD, ICON_SM, UI, typeIcon } from "@/lib/icons";
 import { cardDeepLink } from "@/lib/origins";
+import { copyText } from "@/lib/copy-text";
 import { useBoardStore } from "@/lib/store";
 
 type SaveState = "idle" | "saving" | "saved";
@@ -120,8 +121,8 @@ export function CardDrawer() {
             className="drawer-close"
             title={t("panels.card.copyLink")}
             onClick={async () => {
-              await navigator.clipboard.writeText(cardDeepLink(boardId, card.id));
-              useBoardStore.getState().showToast(tr("panels.card.linkCopied"));
+              const ok = await copyText(cardDeepLink(boardId, card.id));
+              useBoardStore.getState().showToast(ok ? tr("panels.card.linkCopied") : tr("sidebar.copy.failed"));
             }}
           >
             <UI.copy {...ICON_MD} />

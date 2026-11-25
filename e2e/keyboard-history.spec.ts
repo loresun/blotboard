@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { boardInputBlocked, boardKeyBlocked, historyShortcut } from "../lib/keyboard-shortcuts";
 
-const headers = { "x-board-web": "1" };
+const headers = { "x-auth-key": "e2e-token" };
 const nativeModifier = process.platform === "darwin" ? "Meta" : "Control";
 
 async function setup(page: Page) {

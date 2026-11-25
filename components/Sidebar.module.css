@@ -64,3 +64,16 @@
   opacity: 0.5;
   cursor: default;
 }
+
+@media (max-width: 820px) {
+  .sorting select {
+    min-height: 44px;
+    height: 44px;
+    font-size: 16px;
+  }
+  .folding button {
+    min-height: 44px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}

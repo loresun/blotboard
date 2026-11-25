@@ -35,6 +35,7 @@ import {
 import { readingOrder, type TidyMode } from "./layout";
 import { frameCandidateIds } from "./frames";
 import { buildCardClipboard, cardClipboardBounds, type CardClipboard } from "./card-clipboard";
+import { copyText } from "./copy-text";
 import { cardSearchText } from "./search-text";
 import type { BoardCheckpoint, BoardImportMode, BoardImportSummary, EdgePatch, FullSpec } from "./api-client";
 import type {
@@ -962,12 +963,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     // 写系统剪贴板是「顺带」：成了就能粘到另一个窗口 / 另一台机器的画板上；
     // 不成（非安全上下文，比如走 Tailscale 的 http://100.x）也不影响本窗口——内存那份就够
     if (text.length <= MAX_CLIPBOARD_TEXT) {
-      try {
-        await navigator.clipboard?.writeText(text);
-        systemClipboardOk = true;
-      } catch {
-        systemClipboardOk = false;
-      }
+      systemClipboardOk = await copyText(text).catch(() => false);
     }
     get().showToast(
       data.edges.length

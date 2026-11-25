@@ -1,14 +1,12 @@
-import fs from "node:fs";
-import { Readable } from "node:stream";
-import { openControlledImage, statControlledImage } from "@/lib/uploads";
+import { openControlledImage, openSafeFileWebStream, statControlledImage } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ uploadId: string }> };
 
 /** 文件流直接交给 Response，Node 自己处理背压；openControlledImage 已验过头部签名。 */
-const streamOf = (file: string): ReadableStream<Uint8Array> =>
-  Readable.toWeb(fs.createReadStream(file)) as ReadableStream<Uint8Array>;
+const streamOf = (file: string, signal?: AbortSignal): ReadableStream<Uint8Array> =>
+  openSafeFileWebStream(file, { signal });
 
 /**
  * 同源图片预览。所有拒绝路径统一 404，不泄露目录 / 文件是否存在。
@@ -39,7 +37,7 @@ export async function GET(request: Request, ctx: Ctx): Promise<Response> {
       return new Response(null, { status: 304, headers: { etag: meta.etag, "cache-control": headers["cache-control"] } });
     }
     const image = openControlledImage(id);
-    return new Response(streamOf(image.file), {
+    return new Response(streamOf(image.file, request.signal), {
       status: 200,
       headers: { ...headers, "content-length": String(image.size) },
     });

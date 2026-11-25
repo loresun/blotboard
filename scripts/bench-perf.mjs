@@ -31,6 +31,7 @@ async function pickBoard(root) {
 
 /** 服务端：响应体积（压缩前后）、条件拉取、写盘耗时、写盘期间的并发读延迟。 */
 async function serverSide(root, boardId) {
+  const reqHeaders = { ...HEADERS, origin: root };
   const bytes = async (headers) => {
     const res = await fetch(`${root}/api/boards/${boardId}`, { headers });
     const buf = await res.arrayBuffer();
@@ -39,12 +40,12 @@ async function serverSide(root, boardId) {
     const wire = Number(res.headers.get("content-length") || 0);
     return { size: encoding === "无" || !wire ? buf.byteLength : wire, encoding };
   };
-  const plain = await bytes({ ...HEADERS, "accept-encoding": "identity" });
-  const packed = await bytes({ ...HEADERS, "accept-encoding": "gzip" });
+  const plain = await bytes({ ...reqHeaders, "accept-encoding": "identity" });
+  const packed = await bytes({ ...reqHeaders, "accept-encoding": "gzip" });
 
-  const board = await fetch(`${root}/api/boards/${boardId}`, { headers: HEADERS }).then((r) => r.json());
+  const board = await fetch(`${root}/api/boards/${boardId}`, { headers: reqHeaders }).then((r) => r.json());
   const since = board.board.updatedAt;
-  const probe = await fetch(`${root}/api/boards/${boardId}?since=${since}`, { headers: HEADERS });
+  const probe = await fetch(`${root}/api/boards/${boardId}?since=${since}`, { headers: reqHeaders });
   const probeBody = await probe.text();
 
   const time = async (fn) => {
@@ -55,14 +56,14 @@ async function serverSide(root, boardId) {
   const write = () =>
     fetch(`${root}/api/boards/${boardId}/state`, {
       method: "PUT",
-      headers: HEADERS,
+      headers: reqHeaders,
       body: JSON.stringify({ viewport: board.board.viewport || { x: 0, y: 0, zoom: 1 } }),
     }).then((r) => r.json());
   await write();
   const writes = [];
   for (let i = 0; i < 5; i += 1) writes.push(await time(write));
 
-  const read = () => fetch(`${root}/api/boards`, { headers: HEADERS }).then((r) => r.arrayBuffer());
+  const read = () => fetch(`${root}/api/boards`, { headers: reqHeaders }).then((r) => r.arrayBuffer());
   const idleRead = await time(read);
   const inflight = write();
   await new Promise((resolve) => setTimeout(resolve, 2));

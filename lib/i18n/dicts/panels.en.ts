@@ -367,6 +367,8 @@ export const panelsEn: Record<keyof typeof panelsZh, string> = {
   "panels.reader.last": "Already at the last card",
   "panels.reader.progress.title": "The whole board reads top to bottom, in the order the cards are placed",
   "panels.reader.outline": "Outline",
+  "panels.reader.downloadSvg": "Download SVG",
+  "panels.reader.downloadSvg.title": "Save this drawing as an .svg file to zoom in or hand to a design tool",
   "panels.reader.outline.hide": "Hide the outline",
   "panels.reader.outline.show": "Show the outline (this board's reading order)",
   "panels.reader.order": "Reading order",
