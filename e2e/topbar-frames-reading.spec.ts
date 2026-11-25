@@ -61,11 +61,11 @@ test.describe("顶栏窄屏收纳", () => {
 
     for (const width of [1600, 1440, 1280, 1024, 900, 768, 600, 430, 360, 320]) {
       await page.setViewportSize({ width, height: 860 });
-      // 收纳档位是量出来的：给它一帧把 ResizeObserver → 重排这一轮跑完
+      // 收纳档位是量出来的：等它完全收敛到零溢出（与 TopBar.tsx 的 useCompactLevel 判定口径一致）
       await expect
         .poll(async () => page.evaluate(() => {
           const bar = document.querySelector(".topbar") as HTMLElement;
-          return bar.scrollWidth <= bar.clientWidth + 1;
+          return bar.scrollWidth <= bar.clientWidth;
         }), { message: `${width}px 下顶栏仍然溢出` })
         .toBe(true);
       await expectNoOverflow(page, `${width}px`);

@@ -84,25 +84,31 @@ test.describe("Issue #11 无限画布交互、一键复制内容与大尺寸卡�
     await newBoard(page, `E2E-Issue11-复制与大尺寸-${Date.now() % 100000}`);
     const boardId = await currentBoardId(page);
 
-    // 建一张超宽超高的文本卡（超过旧上限 1600x2400，验证后端与前端都不截断）
-    const textContent = "这是纯文本内容第一行\n第二行用于验证一键复制";
-    const createdText = await (
+    // ① 建一张超宽超高的卡片（超过旧上限 1600x2400，验证后端与前端都不截断）
+    const createdLarge = await (
       await page.request.post(`/api/boards/${boardId}/cards`, {
         headers: { "content-type": "application/json", "x-auth-key": "e2e-token" },
-        data: { type: "text", title: "大尺寸文本卡", content: textContent, x: 80, y: 80, w: 2800, h: 2600 },
+        data: { type: "text", title: "大尺寸文本卡", content: "无限画布自由调节尺寸", x: 760, y: 520, w: 2800, h: 2600 },
       })
     ).json();
-    expect(createdText.card.w).toBe(2800);
-    expect(createdText.card.h).toBe(2600);
+    expect(createdLarge.card.w).toBe(2800);
+    expect(createdLarge.card.h).toBe(2600);
+
+    // ② 在可视区正中放一张常规文本卡与一张代码卡，验证一键复制纯文本内容（非卡片 JSON）
+    const textContent = "这是纯文本内容第一行\n第二行用于验证一键复制";
+    await page.request.post(`/api/boards/${boardId}/cards`, {
+      headers: { "content-type": "application/json", "x-auth-key": "e2e-token" },
+      data: { type: "text", title: "一键复制文本卡", content: textContent, x: 220, y: 200, w: 360, h: 180 },
+    });
 
     const codeSource = "export function greet(name: string) {\n  return `hello ${name}`;\n}";
     await page.request.post(`/api/boards/${boardId}/cards`, {
       headers: { "content-type": "application/json", "x-auth-key": "e2e-token" },
-      data: { type: "code", title: "示例代码", code: { language: "ts", source: codeSource }, x: 3000, y: 80, w: 420, h: 240 },
+      data: { type: "code", title: "示例代码", code: { language: "ts", source: codeSource }, x: 640, y: 200, w: 420, h: 220 },
     });
 
     await page.locator('.top-btn[aria-label="刷新"]').click();
-    const textCard = page.locator(CARD, { hasText: "大尺寸文本卡" });
+    const textCard = page.locator(CARD, { hasText: "一键复制文本卡" });
     await expect(textCard).toBeVisible();
 
     // 通过卡头一键复制按钮复制文本卡纯文本（确保不是 blotboardClipboard JSON）
@@ -113,6 +119,7 @@ test.describe("Issue #11 无限画布交互、一键复制内容与大尺寸卡�
     expect(copiedText).not.toContain("blotboardClipboard");
 
     // 阅读模式顶栏同样提供一键复制内容按钮
+    await textCard.hover();
     await textCard.locator('.card-tool[aria-label="放大阅读"]').click();
     const reader = page.locator(".reader-modal");
     await expect(reader).toBeVisible();
