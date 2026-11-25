@@ -168,7 +168,7 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
   /** 「导入画板…」的文件框：菜单项点不出系统文件选择框，得借一个真的 input */
   const importInput = useRef<HTMLInputElement | null>(null);
   /** 待定位的画板：切板后要把它从折叠里挖出来滚到眼前，滚到了就清空 */
-  const [boardReveal, setBoardReveal] = useState<{ id: string; smooth: boolean } | null>(null);
+  const [boardReveal, setBoardReveal] = useState<{ id: string; smooth: boolean; jumped?: boolean } | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(SIDEBAR_DEFAULT_VIEWPORT_HEIGHT);
   const [touchCompact, setTouchCompact] = useState(false);
@@ -646,10 +646,20 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
 
   const activeOffscreen = useMemo(() => {
     if (section !== "boards" || collapsed || !boardId || !activeTrail.found) return false;
+    const root = boardListRef.current;
+    if (root) {
+      const target = root.querySelector<HTMLElement>(`.board-item[data-board-id="${boardId}"]`);
+      if (target) {
+        const listRect = root.getBoundingClientRect();
+        const itemRect = target.getBoundingClientRect();
+        const visiblePx = Math.min(itemRect.bottom, listRect.bottom) - Math.max(itemRect.top, listRect.top);
+        return visiblePx < itemRect.height * 0.5;
+      }
+    }
     const rowIdx = flattened.indexByBoardId.get(boardId);
     if (rowIdx === undefined) return true;
     const row = flattened.rows[rowIdx];
-    const viewH = boardListRef.current?.clientHeight || viewportHeight;
+    const viewH = root?.clientHeight || viewportHeight;
     const visiblePx = Math.min(row.offsetTop + row.height, scrollTop + viewH) - Math.max(row.offsetTop, scrollTop);
     return visiblePx < row.height * 0.5;
   }, [section, collapsed, boardId, activeTrail.found, flattened, scrollTop, viewportHeight]);
@@ -674,7 +684,11 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
     setBoardReveal({ id: boardId, smooth });
   }, [boardId, activeTrail]);
 
-  /** 把待定位的那块板滚到可见处；用扁平坐标直接算偏移，即使目标行尚未进入当前虚拟窗口 */
+  /**
+   * 把待定位的那块板滚到可见处：
+   *  - 目标行已在 DOM 中时直接用真实几何 `scrollIntoView`，避免不同系统字体导致估算行高漂移；
+   *  - 目标行落在虚拟窗口外时先按扁平估算偏移跳过去（`jumped: true`），待下一帧挂载后再精确定位。
+   */
   useEffect(() => {
     if (!boardReveal || section !== "boards") return;
     const root = boardListRef.current;
@@ -684,13 +698,24 @@ export function Sidebar({ onNewBoard }: { onNewBoard: () => void }) {
       if (boardKeyword) setBoardReveal(null);
       return;
     }
+    const target = root.querySelector<HTMLElement>(`.board-item[data-board-id="${boardReveal.id}"]`);
+    if (target) {
+      target.scrollIntoView({ block: "center", behavior: boardReveal.smooth ? "smooth" : "auto" });
+      if (!boardReveal.smooth) setScrollTop(root.scrollTop);
+      setBoardReveal(null);
+      return;
+    }
+    if (boardReveal.jumped) {
+      setBoardReveal(null);
+      return;
+    }
     const row = flattened.rows[rowIdx];
     const viewH = root.clientHeight || viewportHeight;
     const maxScroll = Math.max(0, flattened.totalHeight - viewH);
     const top = Math.max(0, Math.min(row.offsetTop - (viewH - row.height) / 2, maxScroll));
-    root.scrollTo({ top, behavior: boardReveal.smooth ? "smooth" : "auto" });
-    if (!boardReveal.smooth) setScrollTop(top);
-    setBoardReveal(null);
+    root.scrollTo({ top, behavior: "auto" });
+    setScrollTop(top);
+    setBoardReveal({ id: boardReveal.id, smooth: false, jumped: true });
   }, [boardReveal, section, boardKeyword, flattened, viewportHeight]);
 
   /**
